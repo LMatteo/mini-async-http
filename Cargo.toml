@@ -1,0 +1,18 @@
+[package]
+name = "http_server"
+version = "0.1.0"
+authors = ["Lucas Matteo"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+regex = "1"
+chrono = "0.4"
+mio = {version="0.7", features = ["os-poll", "tcp", "os-util"]}
+log = "0.4"
+env_logger= "0.7.1"
+
+[dev-dependencies]
+reqwest = { version = "0.10", features = ["blocking"] }
+lazy_static = "1.4.0"
