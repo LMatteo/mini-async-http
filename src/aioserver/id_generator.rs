@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+// Very basic implementation of a usize typed id generator
 pub struct IdGenerator {
     used: HashMap<usize, ()>,
     pos: usize,

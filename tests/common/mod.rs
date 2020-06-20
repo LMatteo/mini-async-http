@@ -1,9 +1,9 @@
-use http_server::aioserver::AIOServer;
-use http_server::http::Headers;
-use http_server::http::Method;
-use http_server::http::Version;
-use http_server::request::{Request, RequestBuilder};
-use http_server::response::{Response, ResponseBuilder};
+use mini_async_http::aioserver::AIOServer;
+use mini_async_http::http::Headers;
+use mini_async_http::http::Method;
+use mini_async_http::http::Version;
+use mini_async_http::request::{Request, RequestBuilder};
+use mini_async_http::response::{Response, ResponseBuilder};
 
 use std::sync::Mutex;
 

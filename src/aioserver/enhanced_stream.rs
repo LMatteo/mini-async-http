@@ -18,7 +18,13 @@ pub enum RequestError {
     ReadError(Error),
     ParseError(ParseError),
 }
-
+/// Wrapper for a stream to read data from. 
+/// It will try and buffer the maximum data that can be read from the inner Read and store it into its inner buffer
+/// 
+/// Warning : the buffer size is not limited which can be a major security issue
+/// 
+/// Once the stream is read it will try and parse http request, if no request can be parsed from the buffer, it will be left untouched
+/// Everytime a request is read from the buffer, the corresponding section of the buffer is cleared
 pub struct EnhancedStream<T> {
     id: usize,
     stream: T,
@@ -28,6 +34,7 @@ pub struct EnhancedStream<T> {
 }
 
 impl<T: Read> EnhancedStream<T> {
+    /// Create a new EnhancedStream from a Read struct and the associated id
     pub fn new(id: usize, stream: T) -> EnhancedStream<T> {
         EnhancedStream {
             id,
@@ -38,10 +45,15 @@ impl<T: Read> EnhancedStream<T> {
         }
     }
 
+    /// return the id associated to the EnhancedStream instance
     pub fn id(&self) -> usize {
         self.id
     }
 
+    /// Read the inner Read struct and fill the buffer with the data
+    /// If a request can be parsed from the inner buffer but is not finished will return an Unexpected End error
+    /// Return an error if the inner Stream has reached EOF
+    /// if the stream of byte received is not correctly formated, an error is returned and the stream is stopped 
     pub fn requests(&mut self) -> Result<Vec<Request>, RequestError> {
         match self.stream.read(&mut self.buffer) {
             Ok(0) => {
@@ -79,12 +91,14 @@ impl<T: Read> EnhancedStream<T> {
     }
 }
 
+/// Implement Shutdown for the std implementation of TcpStream
 impl EnhancedStream<std::net::TcpStream> {
     pub fn shutdown(&self) -> std::io::Result<()> {
         self.stream.shutdown(std::net::Shutdown::Both)
     }
 }
 
+/// Implement Shutdown for the mio implementation of TcpStream
 impl EnhancedStream<mio::net::TcpStream> {
     pub fn shutdown(&self) -> std::io::Result<()> {
         self.stream.shutdown(std::net::Shutdown::Both)

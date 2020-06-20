@@ -1,8 +1,12 @@
 [package]
-name = "http_server"
-version = "0.1.0"
+name = "mini_async_http"
+version = "0.0.1"
 authors = ["Lucas Matteo"]
 edition = "2018"
+license-file = "./LICENSE"
+description = "Tiny async http server based on mio"
+repository = "https://github.com/LMatteo/mini-async-http"
+readme = "README.MD"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

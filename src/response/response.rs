@@ -145,9 +145,15 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn body(mut self, body: &[u8]) -> Self {
-        self.body = Option::Some(body.to_vec());
-        self
+    pub fn content_type(mut self, content_type: &str) -> Self {
+        self.header("Content-Type", content_type)
+    }
+
+    pub fn body(self, body: &[u8]) -> Self {
+        let len = body.len();
+        let mut builder = self.header("Content-Length",&len.to_string());
+        builder.body = Option::Some(body.to_vec());
+        builder
     }
 
     pub fn status(mut self, status: Reason) -> Self {

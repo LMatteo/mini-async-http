@@ -27,6 +27,7 @@ const DELETE: Token = Token(2);
 type Status = Arc<(Mutex<bool>, Condvar)>;
 pub type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
 
+/// Main struct of the crate, represent the http servers
 pub struct AIOServer<H> {
     addr: String,
     handler: Arc<H>,

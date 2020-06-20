@@ -1,5 +1,5 @@
-use http_server::request::Request;
-use http_server::response::ResponseParser;
+use mini_async_http::request::Request;
+use mini_async_http::response::ResponseParser;
 
 use std::io::prelude::*;
 use std::net::TcpStream;
