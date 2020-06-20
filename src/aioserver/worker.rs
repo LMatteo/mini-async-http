@@ -142,7 +142,10 @@ where
             for request in requests {
                 let response = (self.handler)(&request);
 
-                write!(stream, "{}", response);
+                match write!(stream, "{}", response) {
+                    Ok(_) => trace!("Written to id {}", stream.id()),
+                    Err(e) => trace!("Error({}) when writing to connection {}",e,stream.id()),
+                }
 
                 match request.headers().get_header(&"Connection".to_string()) {
                     Some(val) => {

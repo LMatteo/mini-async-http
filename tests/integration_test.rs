@@ -103,7 +103,7 @@ fn multiple_post_connection() {
 #[test]
 fn same_connection() {
     run_test(|config| {
-        let parser = ResponseParser::new_parser();
+        let parser = ResponseParser::new();
 
         let request = request();
         let mut stream = TcpStream::connect(config.addr.clone()).expect("Could not connect");
@@ -154,6 +154,7 @@ fn same_connection() {
     })
 }
 
+#[test]
 fn multiple_connection() {
     run_test(|config| {
         let (sender, receiver) = channel();
@@ -169,7 +170,7 @@ fn multiple_connection() {
             let counter = counter.clone();
             let addr = addr.clone();
             handlers.push(std::thread::spawn(move || {
-                let parser = ResponseParser::new_parser();
+                let parser = ResponseParser::new();
                 let mut stream = TcpStream::connect(addr).expect("Could not connect");
 
                 loop {
@@ -219,7 +220,7 @@ fn multiple_connection() {
 #[test]
 fn interuption() {
     run_test(|config| {
-        let parser = ResponseParser::new_parser();
+        let parser = ResponseParser::new();
 
         let request = request();
         let mut stream = TcpStream::connect(config.addr.clone()).expect("Could not connect");

@@ -10,7 +10,7 @@ use std::sync::Mutex;
 extern crate lazy_static;
 use lazy_static::lazy_static;
 
-pub type handler = Box<dyn Send + Sync + 'static + Fn(&Request) -> Response>;
+pub type Handler = Box<dyn Send + Sync + 'static + Fn(&Request) -> Response>;
 
 pub struct ServerConfig {
     pub addr: String,
@@ -31,7 +31,7 @@ pub struct ServerGenerator {
 }
 
 lazy_static! {
-    static ref generator: ServerGenerator = {
+    static ref GENERATOR: ServerGenerator = {
         ServerGenerator {
             port: Mutex::from(12343),
         }
@@ -39,7 +39,7 @@ lazy_static! {
 }
 
 impl ServerGenerator {
-    pub fn server(&self) -> (AIOServer<handler>, ServerConfig) {
+    pub fn server(&self) -> (AIOServer<Handler>, ServerConfig) {
         let portstr = self.incr().to_string();
 
         let server = server(portstr.as_str());
@@ -80,7 +80,7 @@ pub fn handler_basic(request: &Request) -> Response {
     return response;
 }
 
-fn server(port: &str) -> AIOServer<handler> {
+fn server(port: &str) -> AIOServer<Handler> {
     let addr = format!("127.0.0.1:{}", port);
     AIOServer::new(1, addr.as_str(), Box::new(handler_basic))
 }
@@ -113,7 +113,7 @@ pub fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(ServerConfig) -> () + std::panic::UnwindSafe,
 {
-    let (server, config) = generator.server();
+    let (server, config) = GENERATOR.server();
     let server = std::sync::Arc::from(server);
     let clone = server.clone();
 

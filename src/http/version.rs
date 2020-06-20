@@ -32,8 +32,7 @@ mod test {
         let version = Version::from_str("HTTP/1.1").unwrap();
 
         match version {
-            Version::HTTP11 => {}
-            _ => panic!(),
+            Version::HTTP11 => {},
         }
     }
 }

@@ -1,20 +1,12 @@
-use regex::Regex;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::io::Read;
-
-use crate::http;
-
 use crate::http::{ParseError,Headers};
 use crate::http::Version;
 use crate::response::Response;
 use crate::response::ResponseBuilder;
 
-pub struct ResponseParser {
-}
+pub struct ResponseParser {}
 
 impl ResponseParser {
-    pub fn new_parser() -> ResponseParser {
+    pub fn new() -> ResponseParser {
         return ResponseParser {}
     }
 
@@ -94,7 +86,7 @@ mod test {
 
     #[test]
     fn parse() {
-        let parser = ResponseParser::new_parser();
+        let parser = ResponseParser::new();
         let input = get_resource_string("response.txt").as_bytes().to_vec();
 
         let (a,_) = parser.parse_u8(&input).unwrap();

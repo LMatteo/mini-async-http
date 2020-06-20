@@ -115,7 +115,12 @@ where
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                stream.shutdown();
+                                match stream.shutdown(){
+                                    Err(_) => {
+                                        trace!("Error when shutting down not registered connection")
+                                    }
+                                    _ => {}
+                                };
                                 error!("Error when registering conn : {}", e);
                                 continue;
                             }
@@ -140,7 +145,7 @@ where
                         return;
                     }
                     DELETE => {
-                        AIOServer::remove_connection(&pool, &mut map, &poll);
+                        AIOServer::remove_connection(&pool, &mut map, &poll, &mut gen);
                     }
                     token => {
                         trace!("Data from id : {}", token.0);
@@ -164,6 +169,7 @@ where
         pool: &WorkerPool<H>,
         map: &mut HashMap<Token, SafeStream<TcpStream>>,
         poll: &Poll,
+        generator: &mut IdGenerator,
     ) {
         loop {
             let id = match pool.closed_stream() {
@@ -193,6 +199,8 @@ where
                     continue;
                 }
             };
+
+            generator.remove(id);
         }
     }
 }

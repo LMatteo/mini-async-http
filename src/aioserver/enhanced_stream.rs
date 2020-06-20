@@ -80,8 +80,8 @@ impl<T: Read> EnhancedStream<T> {
 }
 
 impl EnhancedStream<std::net::TcpStream> {
-    pub fn shutdown(&self) {
-        self.stream.shutdown(std::net::Shutdown::Both);
+    pub fn shutdown(&self) -> std::io::Result<()> {
+        self.stream.shutdown(std::net::Shutdown::Both)
     }
 }
 
