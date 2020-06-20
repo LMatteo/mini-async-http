@@ -1,7 +1,8 @@
 extern crate chrono;
 extern crate mio;
 extern crate regex;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate httparse;
 
 mod aioserver;
@@ -10,17 +11,15 @@ mod request;
 mod response;
 
 use crate::aioserver::AIOServer;
-use crate::http::Headers;
-use crate::http::Method;
-use crate::http::Version;
-use crate::request::Request;
-use crate::response::{Response, ResponseBuilder};
 
+use crate::http::Version;
+
+use crate::response::ResponseBuilder;
 
 fn main() {
     env_logger::init();
-    
-    let server = AIOServer::new(16, "0.0.0.0:7878", |request|{
+
+    let server = AIOServer::new(16, "0.0.0.0:7878", |request| {
         let builder = ResponseBuilder::new()
             .code(200)
             .reason(String::from("OK"))

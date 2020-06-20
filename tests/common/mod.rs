@@ -2,7 +2,7 @@ use http_server::aioserver::AIOServer;
 use http_server::http::Headers;
 use http_server::http::Method;
 use http_server::http::Version;
-use http_server::request::{Request,RequestBuilder};
+use http_server::request::{Request, RequestBuilder};
 use http_server::response::{Response, ResponseBuilder};
 
 use std::sync::Mutex;
@@ -62,7 +62,7 @@ impl ServerGenerator {
 }
 
 pub fn handler_basic(request: &Request) -> Response {
-    let mut builder = ResponseBuilder::new()
+    let builder = ResponseBuilder::new()
         .code(200)
         .reason(String::from("OK"))
         .version(Version::HTTP11)
@@ -92,7 +92,7 @@ fn http_addr(port: &str) -> String {
 }
 
 pub fn request() -> Request {
-    let body = String::from("TEST BODY").as_bytes().to_vec();
+    let _body = String::from("TEST BODY").as_bytes().to_vec();
 
     let mut headers = Headers::new();
     headers.set_header(&String::from("content-length"), &String::from("9"));

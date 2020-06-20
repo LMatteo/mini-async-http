@@ -1,28 +1,27 @@
-use std::io::{ErrorKind, Read, Write};
+use mio::event::Source;
+use mio::net::TcpStream;
+use std::io::{ErrorKind, Write};
+use std::ops::Deref;
+use std::sync::mpsc::{channel, SendError};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use mio::net::TcpStream;
-use std::ops::Deref;
-use std::sync::mpsc::{SendError,channel};
-use mio::event::{Source};
-use mio::unix::SourceFd;
+
 use mio::{Interest, Registry, Token};
-use std::os::unix::io::AsRawFd;
-use log::{info, warn, trace};
 
+use log::trace;
 
-use crate::aioserver::{RequestError,EnhancedStream};
+use crate::aioserver;
+use crate::aioserver::SafeStream;
+use crate::aioserver::{EnhancedStream, RequestError};
+use crate::aioserver::{EventedReceiver, EventedSender};
 use crate::http::ParseError;
 use crate::request::Request;
 use crate::response::Response;
-use crate::aioserver::SafeStream;
-use crate::aioserver::{EventedSender,EventedReceiver};
-use crate::aioserver;
 
 type SafeReceiver = Arc<Mutex<Receiver<Job>>>;
 
-pub enum Job{
+pub enum Job {
     Stream(SafeStream<TcpStream>),
     Stop,
 }
@@ -39,10 +38,7 @@ impl<H> WorkerPool<H>
 where
     H: Send + Sync + 'static + Fn(&Request) -> Response,
 {
-    pub fn new(
-        handler: Arc<H>,
-        size: i32,
-    ) -> WorkerPool<H> {
+    pub fn new(handler: Arc<H>, size: i32) -> WorkerPool<H> {
         let (sender, receiver) = channel();
         let receiver = Arc::from(Mutex::from(receiver));
         WorkerPool {
@@ -59,7 +55,7 @@ where
     }
 
     pub fn start(&mut self) {
-        let (_,receiver) = &self.job_channel;
+        let (_, receiver) = &self.job_channel;
         let (sender, _) = &self.close_channel;
 
         for _ in 0..self.size {
@@ -68,7 +64,11 @@ where
             let delete_sender = sender.clone();
 
             let join = std::thread::spawn(move || {
-                let mut worker = Worker { receiver, delete_sender ,handler };
+                let mut worker = Worker {
+                    receiver,
+                    delete_sender,
+                    handler,
+                };
 
                 worker.work();
             });
@@ -78,12 +78,12 @@ where
     }
 
     pub fn work(&self, stream: SafeStream<TcpStream>) -> Result<(), SendError<Job>> {
-        let (sender, _ ) = &self.job_channel;
+        let (sender, _) = &self.job_channel;
         sender.send(Job::Stream(stream))
     }
 
     pub fn join(self) {
-        let (sender, _ ) = &self.job_channel;
+        let (sender, _) = &self.job_channel;
         for _ in &self.handles {
             sender.send(Job::Stop).unwrap();
         }
@@ -94,7 +94,7 @@ where
     }
 
     pub fn closed_stream(&self) -> Option<usize> {
-        let (_,receiver) = &self.close_channel;
+        let (_, receiver) = &self.close_channel;
         match receiver.try_recv() {
             Ok(val) => Some(val),
             _ => None,
@@ -128,12 +128,12 @@ where
                     continue
                 }
                 Err(RequestError::EOF) => {
-                    trace!("Reached EOF, closing stream {}",stream.id());
+                    trace!("Reached EOF, closing stream {}", stream.id());
                     self.close_stream(stream.deref());
                     continue;
                 }
                 Err(e) => {
-                    trace!("Error {:?} on reading request from {}",e,stream.id());
+                    trace!("Error {:?} on reading request from {}", e, stream.id());
                     self.close_stream(stream.deref());
                     continue;
                 }
@@ -147,37 +147,43 @@ where
                 match request.headers().get_header(&"Connection".to_string()) {
                     Some(val) => {
                         if val == "close" {
-                            self.close_stream(stream.deref()) 
+                            self.close_stream(stream.deref())
                         }
                     }
-                    _ => {},
+                    _ => {}
                 }
             }
         }
     }
 
-    fn close_stream(&self, stream : &EnhancedStream<TcpStream>){
+    fn close_stream(&self, stream: &EnhancedStream<TcpStream>) {
         self.delete_sender.send(stream.id()).unwrap();
     }
 }
 
 impl<T> Source for WorkerPool<T> {
-    fn register(&mut self, registry: &Registry, token: Token, interests: Interest)
-        -> std::io::Result<()>
-    {   
-        let (_ , receiver) = &mut self.close_channel;
+    fn register(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interests: Interest,
+    ) -> std::io::Result<()> {
+        let (_, receiver) = &mut self.close_channel;
         receiver.register(registry, token, interests)
     }
 
-    fn reregister(&mut self, registry: &Registry, token: Token, interests: Interest)
-        -> std::io::Result<()>
-    {
-        let (_ , receiver) = &mut self.close_channel;
+    fn reregister(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interests: Interest,
+    ) -> std::io::Result<()> {
+        let (_, receiver) = &mut self.close_channel;
         receiver.reregister(registry, token, interests)
     }
 
     fn deregister(&mut self, registry: &Registry) -> std::io::Result<()> {
-        let (_ , receiver) = &mut self.close_channel;
+        let (_, receiver) = &mut self.close_channel;
         receiver.deregister(registry)
     }
 }

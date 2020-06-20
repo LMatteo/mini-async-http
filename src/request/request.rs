@@ -37,11 +37,9 @@ impl Request {
 
     pub fn body_as_string(&self) -> Option<String> {
         match self.body.as_ref() {
-            Some(val) => {
-                match String::from_utf8(val.to_vec()){
-                    Ok(body) => Some(body),
-                    Err(_) => None,
-                }
+            Some(val) => match String::from_utf8(val.to_vec()) {
+                Ok(body) => Some(body),
+                Err(_) => None,
             },
             None => None,
         }
@@ -112,7 +110,7 @@ impl RequestBuilder {
         self
     }
 
-    pub fn headers(mut self, headers: Headers) -> Self{
+    pub fn headers(mut self, headers: Headers) -> Self {
         self.headers = headers;
         self
     }

@@ -2,10 +2,9 @@ use mio::event::Source;
 use mio::net::TcpStream;
 use mio::{Interest, Registry, Token};
 
+use log::trace;
 use std::io::prelude::*;
 use std::io::Error;
-use log::{info, warn, trace};
-
 
 use crate::http::ParseError;
 use crate::request::Request;
@@ -46,15 +45,15 @@ impl<T: Read> EnhancedStream<T> {
     pub fn requests(&mut self) -> Result<Vec<Request>, RequestError> {
         match self.stream.read(&mut self.buffer) {
             Ok(0) => {
-                trace!("Reached EOF for {}",self.id);
+                trace!("Reached EOF for {}", self.id);
                 return Err(RequestError::EOF);
-            },
+            }
             Ok(n) => {
                 self.read.extend_from_slice(&self.buffer[0..n]);
-                trace!("Read {} bytes from {}",n,self.id);
+                trace!("Read {} bytes from {}", n, self.id);
             }
             Err(e) => {
-                trace!("Error {:?} when reading {}",e,self.id);
+                trace!("Error {:?} when reading {}", e, self.id);
                 return Err(RequestError::ReadError(e));
             }
         }

@@ -1,25 +1,22 @@
 use crate::aioserver::EnhancedStream;
+use crate::aioserver::IdGenerator;
 use crate::aioserver::WorkerPool;
 use crate::request::Request;
 use crate::response::Response;
-use crate::aioserver::IdGenerator;
 
-use std::io::prelude::*;
-use std::ops::Deref;
 use std::io::ErrorKind;
 
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixDatagram;
-use std::sync::mpsc::channel;
-use log::{info, warn, trace, error};
+
+use log::{error, trace};
 use std::ops::Drop;
-use std::net::Shutdown;
 
 use std::collections::HashMap;
 
 use std::sync::{Arc, Condvar, Mutex};
 
-use mio::net::{TcpListener,TcpStream};
+use mio::net::{TcpListener, TcpStream};
 use mio::unix::SourceFd;
 use mio::{Events, Interest, Poll, Token};
 
@@ -29,8 +26,6 @@ const DELETE: Token = Token(2);
 
 type Status = Arc<(Mutex<bool>, Condvar)>;
 pub type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
-
-
 
 pub struct AIOServer<H> {
     addr: String,
@@ -84,11 +79,7 @@ where
         let mut pool = WorkerPool::new(handler, self.size);
 
         poll.registry()
-            .register(
-                &mut pool,
-                DELETE,
-                Interest::READABLE,
-            )
+            .register(&mut pool, DELETE, Interest::READABLE)
             .unwrap();
 
         pool.start();
@@ -102,40 +93,40 @@ where
 
             for event in events.iter() {
                 match event.token() {
-                    SERVER => {
-                        loop{
-                            let connection = match server.accept() {
-                                Ok((conn,_)) => conn,
-                                Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                                    break;
-                                }
-                                Err(e) => {
-                                    error!("Error when accepting conn : {}",e);
-                                    continue;
-                                }
-                            };
+                    SERVER => loop {
+                        let connection = match server.accept() {
+                            Ok((conn, _)) => conn,
+                            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                                break;
+                            }
+                            Err(e) => {
+                                error!("Error when accepting conn : {}", e);
+                                continue;
+                            }
+                        };
 
-                            let id = gen.id();
-                            let token = Token(id);
-                            let mut stream = EnhancedStream::new(id, connection);
+                        let id = gen.id();
+                        let token = Token(id);
+                        let mut stream = EnhancedStream::new(id, connection);
 
-                            match poll.registry()
-                                .register(&mut stream, token, Interest::READABLE) {
-                                    Ok(_) => {},
-                                    Err(e) => {
-                                        stream.shutdown();
-                                        error!("Error when registering conn : {}",e);
-                                        continue;
-                                    }
-                                }
-
-                            let stream = Arc::from(Mutex::from(stream));
-                            map.insert(token, stream.clone());
-                            pool.work(stream).unwrap();
-
-                            trace!("New client with id : {}", id);
+                        match poll
+                            .registry()
+                            .register(&mut stream, token, Interest::READABLE)
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                stream.shutdown();
+                                error!("Error when registering conn : {}", e);
+                                continue;
+                            }
                         }
-                    }
+
+                        let stream = Arc::from(Mutex::from(stream));
+                        map.insert(token, stream.clone());
+                        pool.work(stream).unwrap();
+
+                        trace!("New client with id : {}", id);
+                    },
                     SHUTDOWN => {
                         let mut buf: [u8; 10] = [0; 10];
                         let (_, stop_receiver) = &self.datagram;
@@ -153,8 +144,8 @@ where
                     }
                     token => {
                         trace!("Data from id : {}", token.0);
-                        
-                        let stream = match map.get(&token){
+
+                        let stream = match map.get(&token) {
                             Some(stream) => stream.clone(),
                             None => {
                                 error!("Could not retrieve stream with id : {}", token.0);
@@ -169,32 +160,36 @@ where
         }
     }
 
-    pub fn remove_connection(pool: &WorkerPool<H>, map: &mut HashMap<Token,SafeStream<TcpStream>>, poll: &Poll){
-        loop{
+    pub fn remove_connection(
+        pool: &WorkerPool<H>,
+        map: &mut HashMap<Token, SafeStream<TcpStream>>,
+        poll: &Poll,
+    ) {
+        loop {
             let id = match pool.closed_stream() {
                 Some(val) => val,
                 None => break,
-            }; 
+            };
 
-            let to_close = match map.remove(&Token(id)){
+            let to_close = match map.remove(&Token(id)) {
                 Some(val) => val,
                 None => continue,
             };
 
             let mut to_close = to_close.lock().unwrap();
 
-            match to_close.shutdown(){
+            match to_close.shutdown() {
                 Ok(_) => {}
                 Err(e) => {
-                    error!("Issue when closing TCP connection {} : {}", id ,e);
+                    error!("Issue when closing TCP connection {} : {}", id, e);
                     continue;
                 }
             };
 
-            match poll.registry().deregister(&mut (*to_close)){
-                Ok(_) => {},
+            match poll.registry().deregister(&mut (*to_close)) {
+                Ok(_) => {}
                 Err(e) => {
-                    error!("Issue when deregistering connection {} : {}",id,e);
+                    error!("Issue when deregistering connection {} : {}", id, e);
                     continue;
                 }
             };
@@ -202,7 +197,7 @@ where
     }
 }
 
-impl<H> AIOServer<H>{
+impl<H> AIOServer<H> {
     fn set_ready(&self, ready_val: bool) {
         let (lock, cvar) = &*self.ready;
         let mut ready = lock.lock().unwrap();
@@ -233,7 +228,7 @@ impl<H> AIOServer<H>{
     }
 }
 
-impl<H> Drop for AIOServer<H>{
+impl<H> Drop for AIOServer<H> {
     fn drop(&mut self) {
         self.shutdown();
     }

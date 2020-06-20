@@ -1,11 +1,10 @@
 use crate::http::Headers;
 
 use regex::Regex;
-use std::io::BufRead;
 use std::convert::From;
+use std::io::BufRead;
 use std::io::Error;
 use std::io::Read;
-
 
 #[derive(Debug)]
 pub enum BuildError {
@@ -110,7 +109,7 @@ impl Parser {
             Err(e) => return Result::Err(ParseError::ReadError(e)),
             Ok(n) => {
                 if n != content_length as usize {
-                    println!("got n : {} instead of {}",n,content_length);
+                    println!("got n : {} instead of {}", n, content_length);
                     return Err(ParseError::UnexpectedEnd);
                 }
                 nb += n;

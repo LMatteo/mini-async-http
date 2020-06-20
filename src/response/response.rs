@@ -42,7 +42,7 @@ impl Response {
         self.code
     }
 
-    pub fn reason(&self) -> &String{
+    pub fn reason(&self) -> &String {
         &self.reason
     }
 
@@ -60,11 +60,9 @@ impl Response {
 
     pub fn body_as_string(&self) -> Option<String> {
         match self.body.as_ref() {
-            Some(val) => {
-                match String::from_utf8(val.to_vec()){
-                    Ok(body) => Some(body),
-                    Err(_) => None,
-                }
+            Some(val) => match String::from_utf8(val.to_vec()) {
+                Ok(body) => Some(body),
+                Err(_) => None,
             },
             None => None,
         }

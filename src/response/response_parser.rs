@@ -28,7 +28,7 @@ impl ResponseParser {
 
     pub fn parse(&self, stream: &mut dyn Read) -> Result<Response, ParseError> {
         let mut reader = BufReader::new(stream);
-        let mut builder = ResponseBuilder::new();
+        let builder = ResponseBuilder::new();
 
         let mut buf = String::new();
         let builder = match reader.read_line(&mut buf) {
@@ -41,27 +41,26 @@ impl ResponseParser {
                 let code = caps.name("code").unwrap().as_str();
                 let reason = caps.name("reason").unwrap().as_str();
 
-                builder.code(match code.parse() {
-                    Ok(val) => val,
-                    Err(_) => return Result::Err(ParseError::CodeParseError),
-                }).version(
-                    match Version::from_str(caps.name("version").unwrap().as_str()) {
-                        Some(version) => version,
-                        None => return Result::Err(ParseError::WrongVersion),
-                    },
-                ).reason(String::from(reason))
+                builder
+                    .code(match code.parse() {
+                        Ok(val) => val,
+                        Err(_) => return Result::Err(ParseError::CodeParseError),
+                    })
+                    .version(
+                        match Version::from_str(caps.name("version").unwrap().as_str()) {
+                            Some(version) => version,
+                            None => return Result::Err(ParseError::WrongVersion),
+                        },
+                    )
+                    .reason(String::from(reason))
             }
             Err(e) => return Result::Err(ParseError::ReadError(e)),
         };
 
         let builder = match self.parser.parse(&mut reader) {
             Err(e) => return Result::Err(e),
-            Ok((headers, Some(body), _)) => {
-                builder.headers(headers).body(body)
-            }
-            Ok((headers, None, _)) => {
-                builder.headers(headers)
-            }
+            Ok((headers, Some(body), _)) => builder.headers(headers).body(body),
+            Ok((headers, None, _)) => builder.headers(headers),
         };
 
         return match builder.build() {
