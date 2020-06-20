@@ -19,7 +19,7 @@ pub struct RequestParser {
 }
 
 impl RequestParser {
-    pub fn new_parser() -> RequestParser {
+    pub fn new() -> RequestParser {
         return RequestParser {
             firstRe: Regex::new(r"(?x)(?P<method>.+)\x20(?P<path>.+)\x20(?P<version>.+)\r\n")
                 .unwrap(),
@@ -27,7 +27,7 @@ impl RequestParser {
         };
     }
 
-    pub fn parse_u8(&self, reader: &Vec<u8>) -> Result<(Request, usize), ParseError> {
+    pub fn parse_u8(&self, reader: &[u8]) -> Result<(Request, usize), ParseError> {
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut req = httparse::Request::new(&mut headers);
 
@@ -97,14 +97,6 @@ mod test {
     use std::path::PathBuf;
     use std::string::ToString;
 
-    fn get_resource(path: &str) -> impl Read {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("resources/test");
-        d.push(path);
-
-        return File::open(d).unwrap();
-    }
-
     fn get_resource_string(path: &str) -> String {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
@@ -115,7 +107,7 @@ mod test {
 
     #[test]
     fn print() {
-        let parser = RequestParser::new_parser();
+        let parser = RequestParser::new();
         let input = get_resource_string("http_request.txt").as_bytes().to_vec();
         let (a, _) = parser.parse_u8(&input).expect("Error when parsing");
 
@@ -128,7 +120,7 @@ mod test {
 
     #[test]
     fn print_with_body() {
-        let parser = RequestParser::new_parser();
+        let parser = RequestParser::new();
         let mut input = get_resource_string("http_body.txt").as_bytes().to_vec();
         let (a, _) = parser.parse_u8(&input).expect("Error when parsing");
 
@@ -142,7 +134,7 @@ mod test {
 
     #[test]
     fn from_u8() {
-        let parser = RequestParser::new_parser();
+        let parser = RequestParser::new();
         let mut input = get_resource_string("http_request.txt").as_bytes().to_vec();
         let (request, n) = parser.parse_u8(&input).expect("Error when parsing");
 
@@ -181,4 +173,41 @@ mod test {
             _ => {}
         }
     }
+
+    #[test]
+    fn partial() {
+        let  input = get_resource_string("http_body.txt");
+        let  input = input.as_bytes();
+        let parser = RequestParser::new();
+        let mut body = Vec::new();
+
+        for byte in 0..input.len() -1 {
+            body.push(input[byte]);
+
+            match parser.parse_u8(&body) {
+                Ok(_) => panic!("Should not be ok"),
+                Err(ParseError::UnexpectedEnd) => {},
+                Err(e) => panic!("Wrong error kind {:?}",e),
+            }
+        }
+
+        body.push(input[input.len() -1]);
+
+        match parser.parse_u8(&body) {
+            Ok(_) => {},
+            Err(e) => panic!("Should be ok got error {:?}",e),
+        }
+    }
+
+    #[test]
+    fn first_line_error(){
+        let input = b"zaezaexq\r\n";
+        let parser = RequestParser::new();
+
+        match parser.parse_u8(input) {
+            Ok(_) => panic!("Should have first line error"),
+            Err(_) => {},
+        }
+    }
+
 }

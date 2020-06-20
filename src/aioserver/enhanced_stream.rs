@@ -33,7 +33,7 @@ impl<T: Read> EnhancedStream<T> {
         EnhancedStream {
             id,
             stream,
-            parser: RequestParser::new_parser(),
+            parser: RequestParser::new(),
             read: Vec::new(),
             buffer: [0; DEFAULT_BUF_SIZE],
         }
