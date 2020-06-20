@@ -32,7 +32,7 @@ mod test {
         let version = Version::from_str("HTTP/1.1").unwrap();
 
         match version {
-            Version::HTTP11 => {},
+            Version::HTTP11 => {}
         }
     }
 }

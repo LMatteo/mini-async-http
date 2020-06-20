@@ -115,7 +115,7 @@ where
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                match stream.shutdown(){
+                                match stream.shutdown() {
                                     Err(_) => {
                                         trace!("Error when shutting down not registered connection")
                                     }

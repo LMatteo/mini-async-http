@@ -1,5 +1,5 @@
-use crate::http::{ParseError,Headers};
 use crate::http::Version;
+use crate::http::{Headers, ParseError};
 use crate::response::Response;
 use crate::response::ResponseBuilder;
 
@@ -7,7 +7,7 @@ pub struct ResponseParser {}
 
 impl ResponseParser {
     pub fn new() -> ResponseParser {
-        return ResponseParser {}
+        return ResponseParser {};
     }
 
     pub fn parse_u8(&self, reader: &[u8]) -> Result<(Response, usize), ParseError> {
@@ -57,9 +57,7 @@ impl ResponseParser {
         }
 
         let body = &reader[res..res + length];
-        let builder = builder
-            .body(body)
-            .headers(headers);
+        let builder = builder.body(body).headers(headers);
 
         let request = match builder.build() {
             Ok(req) => req,
@@ -89,11 +87,11 @@ mod test {
         let parser = ResponseParser::new();
         let input = get_resource_string("response.txt").as_bytes().to_vec();
 
-        let (a,_) = parser.parse_u8(&input).unwrap();
+        let (a, _) = parser.parse_u8(&input).unwrap();
 
         let reader = a.to_string().as_bytes().to_vec();
 
-        let (b,_) = parser.parse_u8(&reader).unwrap();
+        let (b, _) = parser.parse_u8(&reader).unwrap();
 
         assert_eq!(a, b);
     }
