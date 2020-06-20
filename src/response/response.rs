@@ -38,45 +38,24 @@ impl fmt::Display for Response {
 }
 
 impl Response {
-    pub fn empty_500() -> Response {
-        Response {
-            code: Reason::INTERNAL500.code(),
-            reason: Reason::INTERNAL500.reason(),
-            headers: Headers::new(),
-            version: Version::HTTP11,
-            body: None,
-        }
-    }
-
-    pub fn empty_200() -> Response {
-        Response {
-            code: Reason::OK200.code(),
-            reason: Reason::OK200.reason(),
-            headers: Headers::new(),
-            version: Version::HTTP11,
-            body: None,
-        }
-    }
-
-    pub fn empty_400() -> Response {
-        Response {
-            code: Reason::BADREQUEST400.code(),
-            reason: Reason::BADREQUEST400.reason(),
-            headers: Headers::new(),
-            version: Version::HTTP11,
-            body: None,
-        }
-    }
-
-    pub fn set_header(&mut self, key: &str, value: &str) {
-        let key = &String::from(key);
-        let value = &String::from(value);
-
-        self.headers.set_header(key, value);
-    }
-
-    pub fn get_code(&self) -> i32 {
+    pub fn code(&self) -> i32 {
         self.code
+    }
+
+    pub fn reason(&self) -> &String{
+        &self.reason
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
+
+    pub fn headers(&self) -> &Headers {
+        &self.headers
+    }
+
+    pub fn body(&self) -> Option<&Vec<u8>> {
+        self.body.as_ref()
     }
 
     pub fn body_as_string(&self) -> Option<String> {
@@ -101,7 +80,7 @@ pub struct ResponseBuilder {
 }
 
 impl ResponseBuilder {
-    pub fn new() -> ResponseBuilder {
+    pub fn new() -> Self {
         ResponseBuilder {
             code: Option::None,
             reason: Option::None,
@@ -109,6 +88,27 @@ impl ResponseBuilder {
             headers: Option::Some(Headers::new()),
             body: Option::None,
         }
+    }
+
+    pub fn empty_500() -> Self {
+        ResponseBuilder::new()
+            .code(Reason::INTERNAL500.code())
+            .reason(Reason::INTERNAL500.reason())
+            .version(Version::HTTP11)
+    }
+
+    pub fn empty_200() -> Self {
+        ResponseBuilder::new()
+            .code(Reason::OK200.code())
+            .reason(Reason::OK200.reason())
+            .version(Version::HTTP11)
+    }
+
+    pub fn empty_400() -> Self {
+        ResponseBuilder::new()
+            .code(Reason::BADREQUEST400.code())
+            .reason(Reason::BADREQUEST400.reason())
+            .version(Version::HTTP11)
     }
 
     pub fn code(mut self, code: i32) -> Self {
