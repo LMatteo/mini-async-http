@@ -145,8 +145,8 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn body(mut self, body: Vec<u8>) -> Self {
-        self.body = Option::Some(body);
+    pub fn body(mut self, body: &[u8]) -> Self {
+        self.body = Option::Some(body.to_vec());
         self
     }
 
@@ -160,22 +160,22 @@ impl ResponseBuilder {
     pub fn build(self) -> Result<Response, BuildError> {
         let code = match self.code {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         let reason = match self.reason {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         let version = match self.version {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         let headers = match self.headers {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         return Result::Ok(Response {

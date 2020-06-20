@@ -62,11 +62,13 @@ impl ServerGenerator {
 }
 
 pub fn handler_basic(request: &Request) -> Response {
+    let body = request.method().as_str().to_string().as_bytes().to_vec();
+
     let builder = ResponseBuilder::new()
         .code(200)
         .reason(String::from("OK"))
         .version(Version::HTTP11)
-        .body(request.method().as_str().to_string().as_bytes().to_vec())
+        .body(&body)
         .header("Content-Type", "text/plain")
         .header(
             "Content-Length",

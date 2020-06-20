@@ -5,96 +5,103 @@ use std::io::Read;
 
 use crate::http;
 
-use crate::http::ParseError;
+use crate::http::{ParseError,Headers};
 use crate::http::Version;
 use crate::response::Response;
 use crate::response::ResponseBuilder;
 
 pub struct ResponseParser {
-    firstRe: Regex,
-    parser: http::Parser,
 }
 
 impl ResponseParser {
     pub fn new_parser() -> ResponseParser {
-        return ResponseParser {
-            firstRe: Regex::new(
-                r"(?x)(?P<version>[^\x20]+)\x20(?P<code>[^\x20]+)\x20(?P<reason>.+)\r\n",
-            )
-            .unwrap(),
-            parser: http::Parser::new(),
-        };
+        return ResponseParser {}
     }
 
-    pub fn parse(&self, stream: &mut dyn Read) -> Result<Response, ParseError> {
-        let mut reader = BufReader::new(stream);
-        let builder = ResponseBuilder::new();
+    pub fn parse_u8(&self, reader: &[u8]) -> Result<(Response, usize), ParseError> {
+        let mut headers = [httparse::EMPTY_HEADER; 64];
+        let mut resp = httparse::Response::new(&mut headers);
 
-        let mut buf = String::new();
-        let builder = match reader.read_line(&mut buf) {
-            Ok(_) => {
-                let caps = match self.firstRe.captures(buf.as_str()) {
-                    Some(caps) => caps,
-                    None => return Result::Err(ParseError::FirstLine),
+        let res = match resp.parse(reader) {
+            Ok(httparse::Status::Partial) => return Err(ParseError::UnexpectedEnd),
+            Ok(httparse::Status::Complete(n)) => n,
+            Err(e) => return Err(ParseError::from(e)),
+        };
+
+        let mut builder = ResponseBuilder::new()
+            .code(resp.code.unwrap().into())
+            .reason(String::from(resp.reason.unwrap()))
+            .version(Version::HTTP11);
+
+        let mut headers = Headers::new();
+
+        for header in resp.headers {
+            let name = String::from(header.name);
+            let val = String::from_utf8(header.value.to_vec()).unwrap();
+
+            headers.set_header(&name, &val)
+        }
+
+        let length = match headers.get_header(&String::from("Content-length")) {
+            Some(n) => n,
+            None => {
+                builder = builder.headers(headers);
+                let request = match builder.build() {
+                    Ok(req) => req,
+                    Err(e) => return Err(ParseError::BuilderError(e)),
                 };
 
-                let code = caps.name("code").unwrap().as_str();
-                let reason = caps.name("reason").unwrap().as_str();
-
-                builder
-                    .code(match code.parse() {
-                        Ok(val) => val,
-                        Err(_) => return Result::Err(ParseError::CodeParseError),
-                    })
-                    .version(
-                        match Version::from_str(caps.name("version").unwrap().as_str()) {
-                            Some(version) => version,
-                            None => return Result::Err(ParseError::WrongVersion),
-                        },
-                    )
-                    .reason(String::from(reason))
+                return Ok((request, res));
             }
-            Err(e) => return Result::Err(ParseError::ReadError(e)),
         };
 
-        let builder = match self.parser.parse(&mut reader) {
-            Err(e) => return Result::Err(e),
-            Ok((headers, Some(body), _)) => builder.headers(headers).body(body),
-            Ok((headers, None, _)) => builder.headers(headers),
+        let length = match length.parse::<usize>() {
+            Ok(val) => val,
+            Err(_e) => return Err(ParseError::LengthParse),
         };
 
-        return match builder.build() {
-            Ok(request) => Result::Ok(request),
-            Err(e) => Result::Err(ParseError::BuilderError(e)),
+        if reader.len() < res + length {
+            return Err(ParseError::UnexpectedEnd);
+        }
+
+        let body = &reader[res..res + length];
+        let builder = builder
+            .body(body)
+            .headers(headers);
+
+        let request = match builder.build() {
+            Ok(req) => req,
+            Err(e) => return Err(ParseError::BuilderError(e)),
         };
+
+        return Ok((request, res + length));
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
-    use std::io::Cursor;
+    use std::fs;
     use std::path::PathBuf;
 
-    fn get_resource(path: &str) -> impl Read {
+    fn get_resource_string(path: &str) -> String {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
         d.push(path);
 
-        return File::open(d).unwrap();
+        return fs::read_to_string(d).unwrap();
     }
 
     #[test]
     fn parse() {
         let parser = ResponseParser::new_parser();
-        let mut input = get_resource("response.txt");
+        let input = get_resource_string("response.txt").as_bytes().to_vec();
 
-        let a = parser.parse(&mut input).unwrap();
+        let (a,_) = parser.parse_u8(&input).unwrap();
 
-        let mut reader = Cursor::new(a.to_string());
+        let reader = a.to_string().as_bytes().to_vec();
 
-        let b = parser.parse(&mut reader).unwrap();
+        let (b,_) = parser.parse_u8(&reader).unwrap();
 
         assert_eq!(a, b);
     }

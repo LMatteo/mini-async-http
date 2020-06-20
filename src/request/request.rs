@@ -123,17 +123,17 @@ impl RequestBuilder {
     pub fn build(self) -> Result<Request, BuildError> {
         let method = match self.method {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         let path = match self.path {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         let version = match self.version {
             Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
+            None => return Result::Err(BuildError::Incomplete),
         };
 
         return Result::Ok(Request {

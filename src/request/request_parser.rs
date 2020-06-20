@@ -1,7 +1,3 @@
-use regex::Regex;
-
-use crate::http;
-
 use crate::http::Headers;
 use crate::http::Method;
 use crate::http::ParseError;
@@ -9,18 +5,11 @@ use crate::http::Version;
 use crate::request::Request;
 use crate::request::RequestBuilder;
 
-pub struct RequestParser {
-    firstRe: Regex,
-    parser: http::Parser,
-}
+pub struct RequestParser {}
 
 impl RequestParser {
     pub fn new() -> RequestParser {
-        return RequestParser {
-            firstRe: Regex::new(r"(?x)(?P<method>.+)\x20(?P<path>.+)\x20(?P<version>.+)\r\n")
-                .unwrap(),
-            parser: http::Parser::new(),
-        };
+        return RequestParser {};
     }
 
     pub fn parse_u8(&self, reader: &[u8]) -> Result<(Request, usize), ParseError> {

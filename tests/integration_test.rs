@@ -109,47 +109,47 @@ fn same_connection() {
         let mut stream = TcpStream::connect(config.addr.clone()).expect("Could not connect");
 
         stream.write(format!("{}", request).as_bytes()).unwrap();
-        let received = parser
-            .parse(&mut stream)
+        let mut buf : [u8; 10000] = [0; 10000];
+        stream.read(&mut buf).expect("Error when reading from response stream");
+        let (received,_) = parser
+            .parse_u8(&buf)
             .expect("Could not read server response");
         assert_eq!(
             "GET",
-            String::from_utf8(received.body.expect("Missing body"))
-                .unwrap()
-                .as_str()
+            received.body_as_string().expect("Missing body")
         );
 
         stream.write(format!("{}", request).as_bytes()).unwrap();
-        let received = parser
-            .parse(&mut stream)
+        let mut buf : [u8; 10000] = [0; 10000];
+        stream.read(&mut buf).expect("Error when reading from response stream");
+        let (received,_) = parser
+            .parse_u8(&buf)
             .expect("Could not read server response");
         assert_eq!(
             "GET",
-            String::from_utf8(received.body.expect("Missing body"))
-                .unwrap()
-                .as_str()
+            received.body_as_string().expect("Missing body")
         );
 
         stream.write(format!("{}", request).as_bytes()).unwrap();
-        let received = parser
-            .parse(&mut stream)
+        let mut buf : [u8; 10000] = [0; 10000];
+        stream.read(&mut buf).expect("Error when reading from response stream");
+        let (received,_) = parser
+            .parse_u8(&buf)
             .expect("Could not read server response");
         assert_eq!(
             "GET",
-            String::from_utf8(received.body.expect("Missing body"))
-                .unwrap()
-                .as_str()
+            received.body_as_string().expect("Missing body")
         );
 
         stream.write(format!("{}", request).as_bytes()).unwrap();
-        let received = parser
-            .parse(&mut stream)
+        let mut buf : [u8; 10000] = [0; 10000];
+        stream.read(&mut buf).expect("Error when reading from response stream");
+        let (received,_) = parser
+            .parse_u8(&buf)
             .expect("Could not read server response");
         assert_eq!(
             "GET",
-            String::from_utf8(received.body.expect("Missing body"))
-                .unwrap()
-                .as_str()
+            received.body_as_string().expect("Missing body")
         );
     })
 }
@@ -178,14 +178,15 @@ fn multiple_connection() {
                             stream.write(format!("{}", req).as_bytes()).unwrap();
                             stream.flush().unwrap();
 
-                            let received = parser
-                                .parse(&mut stream)
+                            let mut buf : [u8; 10000] = [0; 10000];
+                            stream.read(&mut buf).expect("Error when reading from response stream");
+
+                            let (received,_) = parser
+                                .parse_u8(&buf)
                                 .expect("Could not read server response");
                             assert_eq!(
                                 "GET",
-                                String::from_utf8(received.body.expect("Missing body"))
-                                    .unwrap()
-                                    .as_str()
+                                received.body_as_string().unwrap()
                             );
                         }
                         Job::Stop => return,
@@ -232,14 +233,14 @@ fn interuption() {
 
         stream.write(end).unwrap();
 
-        let received = parser
-            .parse(&mut stream)
+        let mut buf : [u8; 10000] = [0; 10000];
+        stream.read(&mut buf).expect("Error when reading from response stream");
+        let (received,_) = parser
+            .parse_u8(&buf)
             .expect("Could not read server response");
         assert_eq!(
             "GET",
-            String::from_utf8(received.body.expect("Missing body"))
-                .unwrap()
-                .as_str()
+            received.body_as_string().expect("Missing body")
         );
     })
 }

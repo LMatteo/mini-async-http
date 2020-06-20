@@ -9,5 +9,4 @@ pub use headers::Headers;
 pub use method::Method;
 pub use parser::BuildError;
 pub use parser::ParseError;
-pub use parser::Parser;
 pub use version::Version;
