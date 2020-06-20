@@ -7,11 +7,11 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Request {
-    pub method: Method,
-    pub path: String,
-    pub version: Version,
-    pub headers: Headers,
-    pub body: Option<Vec<u8>>,
+    method: Method,
+    path: String,
+    version: Version,
+    headers: Headers,
+    body: Option<Vec<u8>>,
 }
 
 impl Request {
@@ -117,8 +117,8 @@ impl RequestBuilder {
         self
     }
 
-    pub fn body(mut self, body: Vec<u8>) -> Self {
-        self.body = Option::Some(body);
+    pub fn body(mut self, body: &[u8]) -> Self {
+        self.body = Option::Some(body.to_vec());
         self
     }
 

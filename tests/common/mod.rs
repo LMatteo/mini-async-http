@@ -2,7 +2,7 @@ use http_server::aioserver::AIOServer;
 use http_server::http::Headers;
 use http_server::http::Method;
 use http_server::http::Version;
-use http_server::request::Request;
+use http_server::request::{Request,RequestBuilder};
 use http_server::response::{Response, ResponseBuilder};
 
 use std::sync::Mutex;
@@ -66,11 +66,11 @@ pub fn handler_basic(request: &Request) -> Response {
         .code(200)
         .reason(String::from("OK"))
         .version(Version::HTTP11)
-        .body(request.method.as_str().to_string().as_bytes().to_vec())
+        .body(request.method().as_str().to_string().as_bytes().to_vec())
         .header("Content-Type", "text/plain")
         .header(
             "Content-Length",
-            request.method.as_str().len().to_string().as_str(),
+            request.method().as_str().len().to_string().as_str(),
         );
 
     let response = builder.build().unwrap();
@@ -97,13 +97,14 @@ pub fn request() -> Request {
     let mut headers = Headers::new();
     headers.set_header(&String::from("content-length"), &String::from("9"));
 
-    Request {
-        method: Method::GET,
-        path: String::from("/"),
-        version: Version::HTTP11,
-        headers: headers,
-        body: Some(body),
-    }
+    RequestBuilder::new()
+        .method(Method::GET)
+        .path(String::from("/"))
+        .version(Version::HTTP11)
+        .headers(headers)
+        .body(b"TEST BODY")
+        .build()
+        .unwrap()
 }
 
 pub fn run_test<T>(test: T) -> ()

@@ -74,7 +74,7 @@ impl RequestParser {
         }
 
         let body = &reader[res..res+length];
-        let builder = builder.body(body.to_vec());
+        let builder = builder.body(&body);
         let builder = builder.headers(headers);
 
         let request = match builder.build() {

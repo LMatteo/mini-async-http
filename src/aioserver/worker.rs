@@ -144,7 +144,7 @@ where
 
                 write!(stream, "{}", response);
 
-                match request.headers.get_header(&"Connection".to_string()) {
+                match request.headers().get_header(&"Connection".to_string()) {
                     Some(val) => {
                         if val == "close" {
                             self.close_stream(stream.deref()) 

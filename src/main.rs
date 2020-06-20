@@ -25,11 +25,11 @@ fn main() {
             .code(200)
             .reason(String::from("OK"))
             .version(Version::HTTP11)
-            .body(request.method.as_str().to_string().as_bytes().to_vec())
+            .body(request.method().as_str().to_string().as_bytes().to_vec())
             .header("Content-Type", "text/plain")
             .header(
                 "Content-Length",
-                request.method.as_str().len().to_string().as_str(),
+                request.method().as_str().len().to_string().as_str(),
             );
 
         let response = builder.build().unwrap();
