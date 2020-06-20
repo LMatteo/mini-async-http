@@ -11,7 +11,7 @@ pub struct Response {
     pub reason: String,
     pub version: Version,
     pub headers: Headers,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl fmt::Display for Response {
@@ -28,7 +28,7 @@ impl fmt::Display for Response {
 
         buf.push_str("\r\n");
 
-        match &self.body {
+        match &self.body_as_string() {
             Some(body) => buf.push_str(body.as_str()),
             None => {}
         };
@@ -42,7 +42,7 @@ impl Response {
         Response {
             code: Reason::INTERNAL500.code(),
             reason: Reason::INTERNAL500.reason(),
-            headers: Headers::new_headers(),
+            headers: Headers::new(),
             version: Version::HTTP11,
             body: None,
         }
@@ -52,7 +52,7 @@ impl Response {
         Response {
             code: Reason::OK200.code(),
             reason: Reason::OK200.reason(),
-            headers: Headers::new_headers(),
+            headers: Headers::new(),
             version: Version::HTTP11,
             body: None,
         }
@@ -62,7 +62,7 @@ impl Response {
         Response {
             code: Reason::BADREQUEST400.code(),
             reason: Reason::BADREQUEST400.reason(),
-            headers: Headers::new_headers(),
+            headers: Headers::new(),
             version: Version::HTTP11,
             body: None,
         }
@@ -78,6 +78,18 @@ impl Response {
     pub fn get_code(&self) -> i32 {
         self.code
     }
+
+    pub fn body_as_string(&self) -> Option<String> {
+        match self.body.as_ref() {
+            Some(val) => {
+                match String::from_utf8(val.to_vec()){
+                    Ok(body) => Some(body),
+                    Err(_) => None,
+                }
+            },
+            None => None,
+        }
+    }
 }
 
 pub struct ResponseBuilder {
@@ -85,48 +97,48 @@ pub struct ResponseBuilder {
     reason: Option<String>,
     version: Option<Version>,
     headers: Option<Headers>,
-    body: Option<String>,
+    body: Option<Vec<u8>>,
 }
 
 impl ResponseBuilder {
-    pub fn new_builder() -> ResponseBuilder {
+    pub fn new() -> ResponseBuilder {
         ResponseBuilder {
             code: Option::None,
             reason: Option::None,
             version: Option::Some(Version::HTTP11),
-            headers: Option::Some(Headers::new_headers()),
+            headers: Option::Some(Headers::new()),
             body: Option::None,
         }
     }
 
-    pub fn set_code(&mut self, code: i32) -> &mut ResponseBuilder {
+    pub fn code(mut self, code: i32) -> Self {
         self.code = Option::Some(code);
         self
     }
 
-    pub fn set_reason(&mut self, reason: String) -> &mut ResponseBuilder {
+    pub fn reason(mut self, reason: String) -> Self {
         self.reason = Option::Some(reason);
         self
     }
 
-    pub fn set_version(&mut self, version: Version) -> &mut ResponseBuilder {
+    pub fn version(mut self, version: Version) -> Self {
         self.version = Option::Some(version);
         self
     }
 
-    pub fn set_headers(&mut self, headers: Headers) -> &mut ResponseBuilder {
+    pub fn headers(mut self, headers: Headers) -> Self {
         self.headers = Option::Some(headers);
         self
     }
 
-    pub fn set_header(&mut self, key: &str, value: &str) -> &mut ResponseBuilder {
+    pub fn header(mut self, key: &str, value: &str) -> Self {
         let key = &String::from(key);
         let value = &String::from(value);
 
         match self.headers.as_mut() {
             Some(headers) => headers.set_header(key, value),
             None => {
-                let mut headers = Headers::new_headers();
+                let mut headers = Headers::new();
                 headers.set_header(key, value);
                 self.headers = Some(headers);
             }
@@ -135,12 +147,12 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn set_body(&mut self, body: String) -> &mut ResponseBuilder {
+    pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = Option::Some(body);
         self
     }
 
-    pub fn set_status(&mut self, status: Reason) -> &mut ResponseBuilder {
+    pub fn status(mut self, status: Reason) -> Self {
         self.code = Some(status.code());
         self.reason = Some(status.reason());
 

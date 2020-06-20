@@ -11,28 +11,40 @@ pub struct Request {
     pub path: String,
     pub version: Version,
     pub headers: Headers,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl Request {
-    pub fn get_method(&self) -> &Method {
+    pub fn method(&self) -> &Method {
         &self.method
     }
 
-    pub fn get_path(&self) -> &String {
+    pub fn path(&self) -> &String {
         &self.path
     }
 
-    pub fn get_version(&self) -> &Version {
+    pub fn version(&self) -> &Version {
         &self.version
     }
 
-    pub fn get_headers(&self) -> &Headers {
+    pub fn headers(&self) -> &Headers {
         &self.headers
     }
 
-    pub fn get_body(&self) -> Option<&String> {
+    pub fn body(&self) -> Option<&Vec<u8>> {
         self.body.as_ref()
+    }
+
+    pub fn body_as_string(&self) -> Option<String> {
+        match self.body.as_ref() {
+            Some(val) => {
+                match String::from_utf8(val.to_vec()){
+                    Ok(body) => Some(body),
+                    Err(_) => None,
+                }
+            },
+            None => None,
+        }
     }
 }
 
@@ -57,7 +69,7 @@ impl fmt::Display for Request {
 
         buf.push_str("\r\n");
 
-        match &self.body {
+        match &self.body_as_string() {
             Some(body) => buf.push_str(body.as_str()),
             None => {}
         };
@@ -70,39 +82,44 @@ pub struct RequestBuilder {
     method: Option<Method>,
     path: Option<String>,
     version: Option<Version>,
-    headers: Option<Headers>,
-    body: Option<String>,
+    headers: Headers,
+    body: Option<Vec<u8>>,
 }
 
 impl RequestBuilder {
-    pub fn new_builder() -> RequestBuilder {
+    pub fn new() -> RequestBuilder {
         RequestBuilder {
             method: Option::None,
             path: Option::None,
             version: Option::None,
-            headers: Option::None,
+            headers: Headers::new(),
             body: Option::None,
         }
     }
 
-    pub fn set_method(&mut self, method: Method) {
+    pub fn method(mut self, method: Method) -> Self {
         self.method = Option::Some(method);
+        self
     }
 
-    pub fn set_path(&mut self, path: String) {
+    pub fn path(mut self, path: String) -> Self {
         self.path = Option::Some(path);
+        self
     }
 
-    pub fn set_version(&mut self, version: Version) {
+    pub fn version(mut self, version: Version) -> Self {
         self.version = Option::Some(version);
+        self
     }
 
-    pub fn set_headers(&mut self, headers: Headers) {
-        self.headers = Option::Some(headers);
+    pub fn headers(mut self, headers: Headers) -> Self{
+        self.headers = headers;
+        self
     }
 
-    pub fn set_body(&mut self, body: String) {
+    pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = Option::Some(body);
+        self
     }
 
     pub fn build(self) -> Result<Request, BuildError> {
@@ -121,16 +138,11 @@ impl RequestBuilder {
             None => return Result::Err(BuildError::incomplete),
         };
 
-        let headers = match self.headers {
-            Some(val) => val,
-            None => return Result::Err(BuildError::incomplete),
-        };
-
         return Result::Ok(Request {
             method,
             path,
             version,
-            headers,
+            headers: self.headers,
             body: self.body,
         });
     }

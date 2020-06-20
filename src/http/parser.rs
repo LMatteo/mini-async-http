@@ -2,9 +2,10 @@ use crate::http::Headers;
 
 use regex::Regex;
 use std::io::BufRead;
-
+use std::convert::From;
 use std::io::Error;
 use std::io::Read;
+
 
 #[derive(Debug)]
 pub enum BuildError {
@@ -23,6 +24,27 @@ pub enum ParseError {
     LengthParse,
     BodyReadException,
     CodeParseError,
+    HeaderName,
+    HeaderValue,
+    NewLine,
+    Status,
+    Token,
+    TooManyHeaders,
+    Version,
+}
+
+impl From<httparse::Error> for ParseError {
+    fn from(error: httparse::Error) -> Self {
+        match error {
+            httparse::Error::HeaderName => ParseError::HeaderName,
+            httparse::Error::HeaderValue => ParseError::HeaderValue,
+            httparse::Error::NewLine => ParseError::NewLine,
+            httparse::Error::Status => ParseError::Status,
+            httparse::Error::Token => ParseError::Token,
+            httparse::Error::TooManyHeaders => ParseError::TooManyHeaders,
+            httparse::Error::Version => ParseError::Version,
+        }
+    }
 }
 
 pub struct Parser {
@@ -39,8 +61,8 @@ impl Parser {
     pub fn parse(
         &self,
         reader: &mut dyn BufRead,
-    ) -> Result<(Headers, Option<String>, usize), ParseError> {
-        let mut headers = Headers::new_headers();
+    ) -> Result<(Headers, Option<Vec<u8>>, usize), ParseError> {
+        let mut headers = Headers::new();
 
         let mut nb = 0;
 
@@ -82,12 +104,13 @@ impl Parser {
         };
 
         let mut bodyHandle = reader.take(content_length);
-        let mut buffer = String::new();
+        let mut buffer = vec![0; content_length as usize];
 
-        match bodyHandle.read_to_string(&mut buffer) {
+        match bodyHandle.read(&mut buffer) {
             Err(e) => return Result::Err(ParseError::ReadError(e)),
             Ok(n) => {
                 if n != content_length as usize {
+                    println!("got n : {} instead of {}",n,content_length);
                     return Err(ParseError::UnexpectedEnd);
                 }
                 nb += n;

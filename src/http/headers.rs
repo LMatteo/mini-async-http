@@ -6,7 +6,7 @@ pub struct Headers {
 }
 
 impl Headers {
-    pub fn new_headers() -> Headers {
+    pub fn new() -> Headers {
         return Headers {
             map: HashMap::new(),
         };
@@ -59,16 +59,16 @@ mod test {
 
     #[test]
     fn eq() {
-        let a = Headers::new_headers();
-        let b = Headers::new_headers();
+        let a = Headers::new();
+        let b = Headers::new();
 
         assert_eq!(a, b)
     }
 
     #[test]
     fn key_eq() {
-        let mut a = Headers::new_headers();
-        let mut b = Headers::new_headers();
+        let mut a = Headers::new();
+        let mut b = Headers::new();
 
         a.set_header(&String::from("key"), &String::from("val"));
         a.set_header(&String::from("Content_length"), &String::from("89"));
@@ -80,8 +80,8 @@ mod test {
 
     #[test]
     fn not_eq() {
-        let mut a = Headers::new_headers();
-        let b = Headers::new_headers();
+        let mut a = Headers::new();
+        let b = Headers::new();
 
         a.set_header(&String::from("key"), &String::from("val"));
 
@@ -90,8 +90,8 @@ mod test {
 
     #[test]
     fn not_eq_longer() {
-        let mut a = Headers::new_headers();
-        let mut b = Headers::new_headers();
+        let mut a = Headers::new();
+        let mut b = Headers::new();
 
         a.set_header(&String::from("key"), &String::from("val"));
         a.set_header(&String::from("Content_length"), &String::from("89"));
@@ -104,8 +104,8 @@ mod test {
 
     #[test]
     fn not_eq_val() {
-        let mut a = Headers::new_headers();
-        let mut b = Headers::new_headers();
+        let mut a = Headers::new();
+        let mut b = Headers::new();
 
         a.set_header(&String::from("key"), &String::from("valdiff"));
         a.set_header(&String::from("Content_length"), &String::from("89"));

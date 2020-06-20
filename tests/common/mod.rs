@@ -62,14 +62,13 @@ impl ServerGenerator {
 }
 
 pub fn handler_basic(request: &Request) -> Response {
-    let mut builder = ResponseBuilder::new_builder();
-    builder
-        .set_code(200)
-        .set_reason(String::from("OK"))
-        .set_version(Version::HTTP11)
-        .set_body(String::from(request.method.as_str()))
-        .set_header("Content-Type", "text/plain")
-        .set_header(
+    let mut builder = ResponseBuilder::new()
+        .code(200)
+        .reason(String::from("OK"))
+        .version(Version::HTTP11)
+        .body(request.method.as_str().to_string().as_bytes().to_vec())
+        .header("Content-Type", "text/plain")
+        .header(
             "Content-Length",
             request.method.as_str().len().to_string().as_str(),
         );
@@ -93,9 +92,9 @@ fn http_addr(port: &str) -> String {
 }
 
 pub fn request() -> Request {
-    let body = String::from("TEST BODY");
+    let body = String::from("TEST BODY").as_bytes().to_vec();
 
-    let mut headers = Headers::new_headers();
+    let mut headers = Headers::new();
     headers.set_header(&String::from("content-length"), &String::from("9"));
 
     Request {

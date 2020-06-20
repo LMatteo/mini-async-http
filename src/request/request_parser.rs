@@ -11,6 +11,7 @@ use crate::http::ParseError;
 use crate::http::Version;
 use crate::request::Request;
 use crate::request::RequestBuilder;
+use crate::http::Headers;
 
 pub struct RequestParser {
     firstRe: Regex,
@@ -26,69 +27,63 @@ impl RequestParser {
         };
     }
 
-    pub fn parse_read(&self, reader: &mut dyn Read) -> Result<(Request, usize), ParseError> {
-        let mut buffer = BufReader::new(reader);
-        self.parse(&mut buffer)
-    }
-
     pub fn parse_u8(&self, reader: &Vec<u8>) -> Result<(Request, usize), ParseError> {
-        let mut buffer = Cursor::new(reader);
-        self.parse(&mut buffer)
-    }
+        let mut headers = [httparse::EMPTY_HEADER; 64];
+        let mut req = httparse::Request::new(&mut headers);
 
-    pub fn parse(&self, reader: &mut dyn BufRead) -> Result<(Request, usize), ParseError> {
-        let mut builder = RequestBuilder::new_builder();
-        let mut nb = 0;
+        let res = match req.parse(reader) {
+            Ok(httparse::Status::Partial) => return Err(ParseError::UnexpectedEnd),
+            Ok(httparse::Status::Complete(n)) => n,
+            Err(e) => return Err(ParseError::from(e)),
+        };
 
-        let mut buf = String::new();
-        match reader.read_line(&mut buf) {
-            Ok(0) => return Err(ParseError::UnexpectedEnd),
-            Ok(n) => {
-                if !buf.ends_with("\r\n") {
-                    return Err(ParseError::UnexpectedEnd);
-                }
+        let mut builder = RequestBuilder::new()
+            .method(Method::from_str(req.method.unwrap()).unwrap())
+            .path(String::from(req.path.unwrap()))
+            .version(Version::HTTP11);
 
-                nb += n;
-                let caps = match self.firstRe.captures(buf.as_str()) {
-                    Some(caps) => caps,
-                    None => return Result::Err(ParseError::FirstLine),
+        let mut headers = Headers::new();
+        
+        for header in req.headers{
+            let name = String::from(header.name);
+            let val = String::from_utf8(header.value.to_vec()).unwrap();
+
+            headers.set_header(&name, &val)
+        };
+
+        let length = match headers.get_header(&String::from("Content-length")) {
+            Some(n) => n,
+            None => {
+                builder = builder.headers(headers);
+                let request = match builder.build() {
+                    Ok(req) => req,
+                    Err(e) => return Err(ParseError::BuilderError(e)),
                 };
 
-                let method = caps.name("method").unwrap().as_str();
-                builder.set_method(match Method::from_str(method) {
-                    Some(method) => method,
-                    None => return Result::Err(ParseError::WrongMethod),
-                });
-
-                builder.set_version(
-                    match Version::from_str(caps.name("version").unwrap().as_str()) {
-                        Some(version) => version,
-                        None => return Result::Err(ParseError::WrongVersion),
-                    },
-                );
-
-                builder.set_path(String::from(caps.name("path").unwrap().as_str()));
+                return Ok((request,res))
             }
-            Err(e) => return Result::Err(ParseError::ReadError(e)),
+        };
+
+        let length = match length.parse::<usize>(){
+            Ok(val) => val,
+            Err(e) => return Err(ParseError::LengthParse)
+        };
+
+        if reader.len() < res + length {
+            return Err(ParseError::UnexpectedEnd);
         }
 
-        match self.parser.parse(reader) {
-            Err(e) => return Result::Err(e),
-            Ok((headers, Some(body), size)) => {
-                nb += size;
-                builder.set_headers(headers);
-                builder.set_body(body);
-            }
-            Ok((headers, None, size)) => {
-                nb += size;
-                builder.set_headers(headers)
-            }
+        let body = &reader[res..res+length];
+        let builder = builder.body(body.to_vec());
+        let builder = builder.headers(headers);
+
+        let request = match builder.build() {
+            Ok(req) => req,
+            Err(e) => return Err(ParseError::BuilderError(e)),
         };
 
-        return match builder.build() {
-            Ok(request) => Result::Ok((request, nb)),
-            Err(e) => Result::Err(ParseError::BuilderError(e)),
-        };
+        return Ok((request,res + length))
+
     }
 }
 
@@ -119,56 +114,14 @@ mod test {
     }
 
     #[test]
-    fn read() {
-        let parser = RequestParser::new_parser();
-        let mut input = get_resource("http_request.txt");
-        let (request, n) = parser.parse_read(&mut input).expect("Error when parsing");
-
-        assert_eq!(78, n);
-        assert_eq!(*request.get_method(), Method::GET);
-        assert_eq!(request.get_path().as_str(), "/");
-        assert_eq!(*request.get_version(), Version::HTTP11);
-
-        assert_eq!(
-            request
-                .get_headers()
-                .get_header(&String::from("host"))
-                .unwrap()
-                .as_str(),
-            "localhost:8080"
-        );
-        assert_eq!(
-            request
-                .get_headers()
-                .get_header(&String::from("Accept"))
-                .unwrap()
-                .as_str(),
-            "*/*"
-        );
-        assert_eq!(
-            request
-                .get_headers()
-                .get_header(&String::from("user-agent"))
-                .unwrap()
-                .as_str(),
-            "curl/7.54.0"
-        );
-
-        match request.get_body() {
-            Some(_) => panic!(),
-            _ => {}
-        }
-    }
-
-    #[test]
     fn print() {
         let parser = RequestParser::new_parser();
-        let mut input = get_resource("http_request.txt");
-        let (a, _) = parser.parse_read(&mut input).expect("Error when parsing");
+        let input = get_resource_string("http_request.txt").as_bytes().to_vec();
+        let (a, _) = parser.parse_u8(&input).expect("Error when parsing");
 
-        let mut reader = Cursor::new(a.to_string());
+        let reader = a.to_string().as_bytes().to_vec();
 
-        let (b, _) = parser.parse(&mut reader).expect("Error when parsing");
+        let (b, _) = parser.parse_u8(&reader).expect("Error when parsing");
 
         assert_eq!(a, b);
     }
@@ -176,14 +129,56 @@ mod test {
     #[test]
     fn print_with_body() {
         let parser = RequestParser::new_parser();
-        let mut input = get_resource("http_body.txt");
-        let (a, _) = parser.parse_read(&mut input).expect("Error when parsing");
+        let mut input = get_resource_string("http_body.txt").as_bytes().to_vec();
+        let (a, _) = parser.parse_u8(&input).expect("Error when parsing");
 
-        let mut reader = Cursor::new(a.to_string());
+        let mut reader = a.to_string().as_bytes().to_vec();
 
-        let (b, _) = parser.parse(&mut reader).expect("Error when parsing");
+        let (b, _) = parser.parse_u8(&reader).expect("Error when parsing");
 
         assert_eq!(a, b);
-        assert_eq!(a.get_body().unwrap(), &String::from("teststststststst"));
+        assert_eq!(a.body_as_string().unwrap(), String::from("teststststststst"));
+    }
+
+    #[test]
+    fn from_u8() {
+        let parser = RequestParser::new_parser();
+        let mut input = get_resource_string("http_request.txt").as_bytes().to_vec();
+        let (request, n) = parser.parse_u8(&input).expect("Error when parsing");
+
+        assert_eq!(78, n);
+        assert_eq!(*request.method(), Method::GET);
+        assert_eq!(request.path().as_str(), "/");
+        assert_eq!(*request.version(), Version::HTTP11);
+
+        assert_eq!(
+            request
+                .headers()
+                .get_header(&String::from("host"))
+                .unwrap()
+                .as_str(),
+            "localhost:8080"
+        );
+        assert_eq!(
+            request
+                .headers()
+                .get_header(&String::from("Accept"))
+                .unwrap()
+                .as_str(),
+            "*/*"
+        );
+        assert_eq!(
+            request
+                .headers()
+                .get_header(&String::from("user-agent"))
+                .unwrap()
+                .as_str(),
+            "curl/7.54.0"
+        );
+
+        match request.body() {
+            Some(_) => panic!(),
+            _ => {}
+        }
     }
 }

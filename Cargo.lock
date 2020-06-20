@@ -271,6 +271,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "env_logger",
+ "httparse",
  "lazy_static",
  "log",
  "mio 0.7.0",

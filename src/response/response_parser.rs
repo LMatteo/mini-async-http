@@ -28,10 +28,10 @@ impl ResponseParser {
 
     pub fn parse(&self, stream: &mut dyn Read) -> Result<Response, ParseError> {
         let mut reader = BufReader::new(stream);
-        let mut builder = ResponseBuilder::new_builder();
+        let mut builder = ResponseBuilder::new();
 
         let mut buf = String::new();
-        match reader.read_line(&mut buf) {
+        let builder = match reader.read_line(&mut buf) {
             Ok(_) => {
                 let caps = match self.firstRe.captures(buf.as_str()) {
                     Some(caps) => caps,
@@ -39,32 +39,28 @@ impl ResponseParser {
                 };
 
                 let code = caps.name("code").unwrap().as_str();
-                builder.set_code(match code.parse() {
+                let reason = caps.name("reason").unwrap().as_str();
+
+                builder.code(match code.parse() {
                     Ok(val) => val,
                     Err(_) => return Result::Err(ParseError::CodeParseError),
-                });
-
-                builder.set_version(
+                }).version(
                     match Version::from_str(caps.name("version").unwrap().as_str()) {
                         Some(version) => version,
                         None => return Result::Err(ParseError::WrongVersion),
                     },
-                );
-
-                let reason = caps.name("reason").unwrap().as_str();
-                builder.set_reason(String::from(reason));
+                ).reason(String::from(reason))
             }
             Err(e) => return Result::Err(ParseError::ReadError(e)),
-        }
+        };
 
-        match self.parser.parse(&mut reader) {
+        let builder = match self.parser.parse(&mut reader) {
             Err(e) => return Result::Err(e),
             Ok((headers, Some(body), _)) => {
-                builder.set_headers(headers);
-                builder.set_body(body);
+                builder.headers(headers).body(body)
             }
             Ok((headers, None, _)) => {
-                builder.set_headers(headers);
+                builder.headers(headers)
             }
         };
 
