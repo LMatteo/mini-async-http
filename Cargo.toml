@@ -6,7 +6,7 @@ edition = "2018"
 license-file = "./LICENSE"
 description = "Tiny async http server based on mio"
 repository = "https://github.com/LMatteo/mini-async-http"
-readme = "README.MD"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
