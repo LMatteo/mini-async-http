@@ -78,7 +78,7 @@ impl<T: Read> EnhancedStream<T> {
                     requests.push(req);
                     self.read = self.read.split_off(n);
 
-                    if self.read.len() == 0 {
+                    if self.read.is_empty() {
                         break;
                     }
                 }

@@ -136,13 +136,13 @@ impl RequestBuilder {
             None => return Result::Err(BuildError::Incomplete),
         };
 
-        return Result::Ok(Request {
+        Result::Ok(Request {
             method,
             path,
             version,
             headers: self.headers,
             body: self.body,
-        });
+        })
     }
 }
 

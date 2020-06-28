@@ -8,7 +8,7 @@ pub (crate) struct ResponseParser {}
 
 impl ResponseParser {
     pub fn new() -> ResponseParser {
-        return ResponseParser {};
+        ResponseParser {}
     }
 
     pub fn parse_u8(&self, reader: &[u8]) -> Result<(Response, usize), ParseError> {
@@ -65,7 +65,7 @@ impl ResponseParser {
             Err(e) => return Err(ParseError::BuilderError(e)),
         };
 
-        return Ok((request, res + length));
+        Ok((request, res + length))
     }
 }
 

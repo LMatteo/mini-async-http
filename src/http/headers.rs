@@ -7,9 +7,9 @@ pub struct Headers {
 
 impl Headers {
     pub fn new() -> Headers {
-        return Headers {
+        Headers {
             map: HashMap::new(),
-        };
+        }
     }
 
     pub fn set_header(&mut self, name: &str, value: &str) {
@@ -43,9 +43,9 @@ impl PartialEq for Headers {
                     if val != value {
                         return false;
                     }
-                    return true;
+                    true
                 }
-                None => return false,
+                None => false,
             })
             .filter(|val| !*val)
             .count()

@@ -96,13 +96,13 @@ impl<T> EventedSender<T> {
     }
 
     pub fn send(&self, t: T) -> Result<(), SendError<T>> {
-        let result = self.inner.send(t)?;
+        self.inner.send(t)?;
         match self.sender.send(&self.buf[0..1]) {
             Ok(_) => {}
             Err(e) => trace!("Error when writing on evented channel datagram {}", e),
         };
 
-        Ok(result)
+        Ok(())
     }
 }
 

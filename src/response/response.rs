@@ -145,7 +145,7 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn content_type(mut self, content_type: &str) -> Self {
+    pub fn content_type(self, content_type: &str) -> Self {
         self.header("Content-Type", content_type)
     }
 
@@ -184,13 +184,13 @@ impl ResponseBuilder {
             None => return Result::Err(BuildError::Incomplete),
         };
 
-        return Result::Ok(Response {
+        Result::Ok(Response {
             code,
             reason,
             version,
             headers,
             body: self.body,
-        });
+        })
     }
 }
 
