@@ -1,5 +1,5 @@
 use crate::http::Headers;
-use crate::http::Method;
+
 use crate::http::parser::ParseError;
 use crate::http::Version;
 use crate::request::Request;
@@ -124,7 +124,7 @@ mod test {
         let (request, n) = parser.parse_u8(&input).expect("Error when parsing");
 
         assert_eq!(78, n);
-        assert_eq!(*request.method(), Method::GET);
+        assert_eq!(*request.method(), crate::Method::GET);
         assert_eq!(request.path().as_str(), "/");
         assert_eq!(*request.version(), Version::HTTP11);
 

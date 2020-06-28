@@ -15,7 +15,7 @@ use std::ops::Drop;
 use std::collections::HashMap;
 
 use std::sync::{Arc, Condvar, Mutex};
-use std::sync::atomic::{AtomicBool,Ordering};
+
 
 use mio::net::{TcpListener, TcpStream};
 use mio::unix::SourceFd;

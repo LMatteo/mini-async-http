@@ -1,7 +1,7 @@
-use mini_async_http::{Request, RequestBuilder, AIOServer, Headers,Method,Version,Response,ResponseBuilder};
+use mini_async_http::{Request};
 
-use std::io::prelude::*;
-use std::net::TcpStream;
+
+
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 
