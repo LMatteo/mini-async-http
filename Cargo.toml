@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Lucas Matteo"]
 edition = "2018"
 license-file = "./LICENSE"
-description = "Tiny async http server based on mio"
+description = "Mini async http server based on mio"
 repository = "https://github.com/LMatteo/mini-async-http"
 readme = "README.md"
 

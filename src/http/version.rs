@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Debug, PartialEq)]
 pub enum Version {
     HTTP11,
@@ -9,14 +11,19 @@ impl Version {
             Version::HTTP11 => "HTTP/1.1",
         }
     }
+}
 
-    pub fn from_str(version: &str) -> Option<Version> {
-        match version {
-            "HTTP/1.1" => Option::Some(Version::HTTP11),
-            _ => Option::None,
+impl FromStr for Version{
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "HTTP/1.1" => Ok(Version::HTTP11),
+            _ => Err(()),
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {

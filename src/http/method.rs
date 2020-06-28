@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Debug, PartialEq)]
 pub enum Method {
     GET,
@@ -15,14 +17,18 @@ impl Method {
             Method::DELETE => "DELETE",
         }
     }
+}
 
-    pub fn from_str(method: &str) -> Option<Method> {
-        match method {
-            "GET" => Option::Some(Method::GET),
-            "POST" => Option::Some(Method::POST),
-            "DELETE" => Option::Some(Method::DELETE),
-            "PUT" => Option::Some(Method::PUT),
-            _ => Option::None,
+impl FromStr for Method{
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "GET" => Ok(Method::GET),
+            "POST" => Ok(Method::POST),
+            "DELETE" => Ok(Method::DELETE),
+            "PUT" => Ok(Method::PUT),
+            _ => Err(()),
         }
     }
 }

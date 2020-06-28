@@ -6,14 +6,14 @@ use log::trace;
 use std::io::prelude::*;
 use std::io::Error;
 
-use crate::http::ParseError;
+use crate::http::parser::ParseError;
 use crate::request::Request;
-use crate::request::RequestParser;
+use crate::request::request_parser::RequestParser;
 
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 #[derive(Debug)]
-pub enum RequestError {
+pub (crate) enum RequestError {
     EOF,
     ReadError(Error),
     ParseError(ParseError),
@@ -25,7 +25,7 @@ pub enum RequestError {
 /// 
 /// Once the stream is read it will try and parse http request, if no request can be parsed from the buffer, it will be left untouched
 /// Everytime a request is read from the buffer, the corresponding section of the buffer is cleared
-pub struct EnhancedStream<T> {
+pub (crate) struct EnhancedStream<T> {
     id: usize,
     stream: T,
     parser: RequestParser,

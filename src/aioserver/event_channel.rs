@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// Create a pair of evented channel that can be integrated to the mio event loop
 /// 
 /// The behaviour is similar to the std channel 
-pub fn channel<T>() -> (EventedSender<T>, EventedReceiver<T>) {
+pub (crate) fn channel<T>() -> (EventedSender<T>, EventedReceiver<T>) {
     let (sender, receiver) = std::sync::mpsc::channel();
     let (dsender, dreceiver) = UnixDatagram::pair().unwrap();
 
@@ -22,7 +22,7 @@ pub fn channel<T>() -> (EventedSender<T>, EventedReceiver<T>) {
     (sender, receiver)
 }
 
-pub struct EventedReceiver<T> {
+pub (crate) struct EventedReceiver<T> {
     inner: Receiver<T>,
     receiver: UnixDatagram,
 }
@@ -79,7 +79,7 @@ impl<T> Source for EventedReceiver<T> {
     }
 }
 
-pub struct EventedSender<T> {
+pub (crate) struct EventedSender<T> {
     inner: Sender<T>,
     sender: Arc<UnixDatagram>,
     buf: [u8; 1],

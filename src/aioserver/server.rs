@@ -1,6 +1,6 @@
-use crate::aioserver::EnhancedStream;
-use crate::aioserver::IdGenerator;
-use crate::aioserver::WorkerPool;
+use crate::aioserver::enhanced_stream::EnhancedStream;
+use crate::aioserver::id_generator::IdGenerator;
+use crate::aioserver::worker::WorkerPool;
 use crate::request::Request;
 use crate::response::Response;
 
@@ -15,6 +15,7 @@ use std::ops::Drop;
 use std::collections::HashMap;
 
 use std::sync::{Arc, Condvar, Mutex};
+use std::sync::atomic::{AtomicBool,Ordering};
 
 use mio::net::{TcpListener, TcpStream};
 use mio::unix::SourceFd;
@@ -25,7 +26,7 @@ const SHUTDOWN: Token = Token(1);
 const DELETE: Token = Token(2);
 
 type Status = Arc<(Mutex<bool>, Condvar)>;
-pub type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
+pub (crate) type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
 
 /// Main struct of the crate, represent the http servers
 pub struct AIOServer<H> {
@@ -116,12 +117,9 @@ where
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                match stream.shutdown() {
-                                    Err(_) => {
-                                        trace!("Error when shutting down not registered connection")
-                                    }
-                                    _ => {}
-                                };
+                                if stream.shutdown().is_err() {
+                                    trace!("Error when shutting down not registered connection")
+                                }
                                 error!("Error when registering conn : {}", e);
                                 continue;
                             }
@@ -166,17 +164,13 @@ where
         }
     }
 
-    pub fn remove_connection(
+    fn remove_connection(
         pool: &WorkerPool<H>,
         map: &mut HashMap<Token, SafeStream<TcpStream>>,
         poll: &Poll,
         generator: &mut IdGenerator,
     ) {
-        loop {
-            let id = match pool.closed_stream() {
-                Some(val) => val,
-                None => break,
-            };
+        while let Some(id) = pool.closed_stream() {
 
             let to_close = match map.remove(&Token(id)) {
                 Some(val) => val,

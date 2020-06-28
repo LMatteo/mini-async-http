@@ -12,14 +12,14 @@ impl Headers {
         };
     }
 
-    pub fn set_header(&mut self, name: &String, value: &String) {
+    pub fn set_header(&mut self, name: &str, value: &str) {
         let name = name.to_ascii_lowercase();
         let value = value.to_ascii_lowercase();
 
         self.map.insert(name, value);
     }
 
-    pub fn get_header(&self, name: &String) -> Option<&String> {
+    pub fn get_header(&self, name: &str) -> Option<&String> {
         let name = name.to_ascii_lowercase();
 
         self.map.get(&name)
@@ -50,6 +50,12 @@ impl PartialEq for Headers {
             .filter(|val| !*val)
             .count()
             == 0
+    }
+}
+
+impl Default for Headers{
+    fn default() -> Self {
+        Headers::new()
     }
 }
 

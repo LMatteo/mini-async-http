@@ -1,4 +1,4 @@
-use crate::http::BuildError;
+use crate::http::parser::BuildError;
 use crate::http::Headers;
 use crate::http::Method;
 use crate::http::Version;
@@ -143,5 +143,11 @@ impl RequestBuilder {
             headers: self.headers,
             body: self.body,
         });
+    }
+}
+
+impl Default for RequestBuilder {
+    fn default() -> Self { 
+        RequestBuilder::new()
     }
 }

@@ -12,21 +12,21 @@ use mio::{Interest, Registry, Token};
 use log::trace;
 
 use crate::aioserver;
-use crate::aioserver::SafeStream;
-use crate::aioserver::{EnhancedStream, RequestError};
-use crate::aioserver::{EventedReceiver, EventedSender};
-use crate::http::ParseError;
+use crate::aioserver::server::SafeStream;
+use crate::aioserver::enhanced_stream::{EnhancedStream, RequestError};
+use crate::aioserver::event_channel::{EventedReceiver, EventedSender};
+use crate::http::parser::ParseError;
 use crate::request::Request;
 use crate::response::Response;
 
 type SafeReceiver = Arc<Mutex<Receiver<Job>>>;
 
-pub enum Job {
+pub (crate) enum Job {
     Stream(SafeStream<TcpStream>),
     Stop,
 }
 
-pub struct WorkerPool<H> {
+pub (crate) struct WorkerPool<H> {
     job_channel: (Sender<Job>, SafeReceiver),
     close_channel: (EventedSender<usize>, EventedReceiver<usize>),
     handler: Arc<H>,
@@ -43,7 +43,7 @@ where
         let receiver = Arc::from(Mutex::from(receiver));
         WorkerPool {
             job_channel: (sender, receiver),
-            close_channel: aioserver::channel(),
+            close_channel: aioserver::event_channel::channel(),
             handler,
             size,
             handles: Vec::new(),
@@ -147,13 +147,11 @@ where
                     Err(e) => trace!("Error({}) when writing to connection {}", e, stream.id()),
                 }
 
-                match request.headers().get_header(&"Connection".to_string()) {
-                    Some(val) => {
-                        if val == "close" {
-                            self.close_stream(stream.deref())
-                        }
+                let connection = request.headers().get_header("Connection");
+                if let Some(val) = connection {
+                    if val == "close" {
+                        self.close_stream(stream.deref())
                     }
-                    _ => {}
                 }
             }
         }

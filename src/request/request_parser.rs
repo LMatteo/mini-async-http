@@ -1,11 +1,11 @@
 use crate::http::Headers;
 use crate::http::Method;
-use crate::http::ParseError;
+use crate::http::parser::ParseError;
 use crate::http::Version;
 use crate::request::Request;
 use crate::request::RequestBuilder;
 
-pub struct RequestParser {}
+pub (crate) struct RequestParser {}
 
 impl RequestParser {
     pub fn new() -> RequestParser {
@@ -23,7 +23,7 @@ impl RequestParser {
         };
 
         let mut builder = RequestBuilder::new()
-            .method(Method::from_str(req.method.unwrap()).unwrap())
+            .method(req.method.unwrap().parse().unwrap())
             .path(String::from(req.path.unwrap()))
             .version(Version::HTTP11);
 

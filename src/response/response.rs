@@ -1,4 +1,4 @@
-use crate::http::BuildError;
+use crate::http::parser::BuildError;
 use crate::http::Headers;
 use crate::http::Version;
 use crate::response::Reason;
@@ -191,5 +191,11 @@ impl ResponseBuilder {
             headers,
             body: self.body,
         });
+    }
+}
+
+impl Default for ResponseBuilder{
+    fn default() -> Self {
+        ResponseBuilder::new()
     }
 }

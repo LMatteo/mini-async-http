@@ -1,9 +1,10 @@
 use crate::http::Version;
-use crate::http::{Headers, ParseError};
+use crate::http::{Headers};
+use crate::http::parser::ParseError;
 use crate::response::Response;
 use crate::response::ResponseBuilder;
 
-pub struct ResponseParser {}
+pub (crate) struct ResponseParser {}
 
 impl ResponseParser {
     pub fn new() -> ResponseParser {
