@@ -14,10 +14,11 @@ use log::trace;
 use crate::aioserver;
 use crate::aioserver::server::SafeStream;
 use crate::aioserver::enhanced_stream::{EnhancedStream, RequestError};
-use crate::aioserver::event_channel::{EventedReceiver, EventedSender};
+use crate::aioserver::event_channel::{EventedSender};
 use crate::http::parser::ParseError;
 use crate::request::Request;
 use crate::response::Response;
+use crate::aioserver::server::LoopTask;
 
 type SafeReceiver = Arc<Mutex<Receiver<Job>>>;
 
@@ -28,7 +29,7 @@ pub (crate) enum Job {
 
 pub (crate) struct WorkerPool<H> {
     job_channel: (Sender<Job>, SafeReceiver),
-    close_channel: (EventedSender<usize>, EventedReceiver<usize>),
+    job_handle: EventedSender<LoopTask>,
     handler: Arc<H>,
     size: i32,
     handles: Vec<JoinHandle<()>>,
@@ -38,12 +39,12 @@ impl<H> WorkerPool<H>
 where
     H: Send + Sync + 'static + Fn(&Request) -> Response,
 {
-    pub fn new(handler: Arc<H>, size: i32) -> WorkerPool<H> {
+    pub fn new(handler: Arc<H>, size: i32, job_handle: EventedSender<LoopTask>) -> WorkerPool<H> {
         let (sender, receiver) = channel();
         let receiver = Arc::from(Mutex::from(receiver));
         WorkerPool {
             job_channel: (sender, receiver),
-            close_channel: aioserver::event_channel::channel(),
+            job_handle,
             handler,
             size,
             handles: Vec::new(),
@@ -56,7 +57,7 @@ where
 
     pub fn start(&mut self) {
         let (_, receiver) = &self.job_channel;
-        let (sender, _) = &self.close_channel;
+        let sender = &self.job_handle.clone();
 
         for _ in 0..self.size {
             let receiver = receiver.clone();
@@ -82,29 +83,21 @@ where
         sender.send(Job::Stream(stream))
     }
 
-    pub fn join(self) {
+    pub fn join(&mut self) {
         let (sender, _) = &self.job_channel;
         for _ in &self.handles {
             sender.send(Job::Stop).unwrap();
         }
 
-        for join in self.handles {
+        while let Some(join) = self.handles.pop(){
             join.join().unwrap();
-        }
-    }
-
-    pub fn closed_stream(&self) -> Option<usize> {
-        let (_, receiver) = &self.close_channel;
-        match receiver.try_recv() {
-            Ok(val) => Some(val),
-            _ => None,
         }
     }
 }
 
 struct Worker<H> {
     receiver: SafeReceiver,
-    delete_sender: EventedSender<usize>,
+    delete_sender: EventedSender<LoopTask>,
     handler: Arc<H>,
 }
 
@@ -158,33 +151,6 @@ where
     }
 
     fn close_stream(&self, stream: &EnhancedStream<TcpStream>) {
-        self.delete_sender.send(stream.id()).unwrap();
-    }
-}
-
-impl<T> Source for WorkerPool<T> {
-    fn register(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interests: Interest,
-    ) -> std::io::Result<()> {
-        let (_, receiver) = &mut self.close_channel;
-        receiver.register(registry, token, interests)
-    }
-
-    fn reregister(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interests: Interest,
-    ) -> std::io::Result<()> {
-        let (_, receiver) = &mut self.close_channel;
-        receiver.reregister(registry, token, interests)
-    }
-
-    fn deregister(&mut self, registry: &Registry) -> std::io::Result<()> {
-        let (_, receiver) = &mut self.close_channel;
-        receiver.deregister(registry)
+        self.delete_sender.send(LoopTask::Close(stream.id())).unwrap();
     }
 }

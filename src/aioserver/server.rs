@@ -3,11 +3,9 @@ use crate::aioserver::id_generator::IdGenerator;
 use crate::aioserver::worker::WorkerPool;
 use crate::request::Request;
 use crate::response::Response;
+use crate::aioserver::event_channel::{EventedSender,channel};
 
 use std::io::ErrorKind;
-
-use std::os::unix::io::AsRawFd;
-use std::os::unix::net::UnixDatagram;
 
 use log::{error, trace};
 use std::ops::Drop;
@@ -15,26 +13,34 @@ use std::ops::Drop;
 use std::collections::HashMap;
 
 use std::sync::{Arc, Condvar, Mutex};
+use std::sync::mpsc::{Receiver};
 
 
 use mio::net::{TcpListener, TcpStream};
 use mio::unix::SourceFd;
-use mio::{Events, Interest, Poll, Token};
+use mio::{Events, Interest, Poll, Token, Waker};
 
 const SERVER: Token = Token(0);
 const SHUTDOWN: Token = Token(1);
 const DELETE: Token = Token(2);
+const WAKER: Token = Token(3);
 
 type Status = Arc<(Mutex<bool>, Condvar)>;
 pub (crate) type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
+
+pub (crate) enum LoopTask{
+    Shutdown,
+    Close(usize)
+}
 
 /// Main struct of the crate, represent the http servers
 pub struct AIOServer<H> {
     addr: String,
     handler: Arc<H>,
-    datagram: (UnixDatagram, UnixDatagram),
-    ready: Status,
-    size: i32,
+    pool: WorkerPool<H>,
+    receiver: Receiver<LoopTask>,
+    handle: ServerHandle,
+    poll: mio::Poll,    
 }
 
 impl<H> AIOServer<H>
@@ -43,55 +49,42 @@ where
 {
     pub fn new(size: i32, addr: &str, handler: H) -> AIOServer<H> {
         let handler = Arc::from(handler);
+        let poll = Poll::new().unwrap();
+        let waker = Arc::new(Waker::new(poll.registry(), WAKER).unwrap());
+        let (sender, receiver) = channel(waker.clone());
+        let pool = WorkerPool::new(handler.clone(), size, sender.clone());
+
         AIOServer {
             addr: String::from(addr),
             handler,
-            datagram: UnixDatagram::pair().expect("Could not create datagram"),
-            ready: Arc::new((Mutex::from(false), Condvar::new())),
-            size,
+            pool,
+            poll,
+            receiver,
+            handle: ServerHandle::new(sender),
         }
     }
 
-    pub fn start(&self) {
+    pub fn start(&mut self) {
         let mut map = HashMap::new();
 
-        let mut poll = Poll::new().unwrap();
 
         let mut events = Events::with_capacity(32768);
 
-        let mut gen = IdGenerator::new(3);
+        let mut gen = IdGenerator::new(4);
         let mut server = TcpListener::bind(self.addr.parse().unwrap()).unwrap();
 
-        poll.registry()
+        self.poll.registry()
             .register(&mut server, SERVER, Interest::READABLE)
             .unwrap();
 
-        let (_, receiver) = &self.datagram;
+        self.pool.start();
 
-        poll.registry()
-            .register(
-                &mut SourceFd(&receiver.as_raw_fd()),
-                SHUTDOWN,
-                Interest::READABLE,
-            )
-            .unwrap();
-
-        let handler = self.handler.clone();
-
-        let mut pool = WorkerPool::new(handler, self.size);
-
-        poll.registry()
-            .register(&mut pool, DELETE, Interest::READABLE)
-            .unwrap();
-
-        pool.start();
-
-        self.set_ready(true);
+        self.handle.set_ready(true);
 
         loop {
             trace!("Opened connection: {}", map.len());
             trace!("Connection pool capacity: {}", map.capacity());
-            poll.poll(&mut events, None).unwrap();
+            self.poll.poll(&mut events, None).unwrap();
 
             for event in events.iter() {
                 match event.token() {
@@ -111,7 +104,7 @@ where
                         let token = Token(id);
                         let mut stream = EnhancedStream::new(id, connection);
 
-                        match poll
+                        match self.poll
                             .registry()
                             .register(&mut stream, token, Interest::READABLE)
                         {
@@ -127,24 +120,24 @@ where
 
                         let stream = Arc::from(Mutex::from(stream));
                         map.insert(token, stream.clone());
-                        pool.work(stream).unwrap();
+                        self.pool.work(stream).unwrap();
 
                         trace!("New client with id : {}", id);
                     },
-                    SHUTDOWN => {
-                        let mut buf: [u8; 10] = [0; 10];
-                        let (_, stop_receiver) = &self.datagram;
-                        stop_receiver.recv(&mut buf).unwrap();
-
-                        pool.join();
-
-                        self.set_ready(false);
-
-                        trace!("Shutting down");
-                        return;
-                    }
-                    DELETE => {
-                        AIOServer::remove_connection(&pool, &mut map, &poll, &mut gen);
+                    WAKER => {
+                        while let Ok(task) = self.receiver.try_recv(){
+                            match task {
+                                LoopTask::Shutdown => {
+                                    trace!("Shutting down");
+                                    self.pool.join();
+                                    self.handle.set_ready(false);
+                                    return;
+                                },
+                                LoopTask::Close(id) => {
+                                    AIOServer::<H>::remove_connection(id, &mut map, &self.poll, &mut gen);
+                                }
+                            }
+                        }
                     }
                     token => {
                         trace!("Data from id : {}", token.0);
@@ -157,24 +150,29 @@ where
                             }
                         };
 
-                        pool.work(stream).unwrap();
+                        self.pool.work(stream).unwrap();
                     }
                 }
             }
         }
     }
+}
+
+impl<H> AIOServer<H> {
+    pub fn handle(&self) -> ServerHandle{
+        self.handle.clone()
+    }
 
     fn remove_connection(
-        pool: &WorkerPool<H>,
+        id: usize,
         map: &mut HashMap<Token, SafeStream<TcpStream>>,
         poll: &Poll,
         generator: &mut IdGenerator,
     ) {
-        while let Some(id) = pool.closed_stream() {
 
             let to_close = match map.remove(&Token(id)) {
                 Some(val) => val,
-                None => continue,
+                None => return,
             };
 
             let mut to_close = to_close.lock().unwrap();
@@ -183,7 +181,6 @@ where
                 Ok(_) => {}
                 Err(e) => {
                     error!("Issue when closing TCP connection {} : {}", id, e);
-                    continue;
                 }
             };
 
@@ -191,16 +188,33 @@ where
                 Ok(_) => {}
                 Err(e) => {
                     error!("Issue when deregistering connection {} : {}", id, e);
-                    continue;
                 }
             };
 
             generator.remove(id);
-        }
     }
 }
 
-impl<H> AIOServer<H> {
+impl<H> Drop for AIOServer<H> {
+    fn drop(&mut self) {
+        self.handle.shutdown();
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerHandle{
+    ready: Status,
+    sender: EventedSender<LoopTask>,    
+}
+
+impl ServerHandle{
+    fn new(sender: EventedSender<LoopTask>) -> Self{
+        ServerHandle{
+            ready: Arc::new((Mutex::from(false),Condvar::new())),
+            sender,
+        }
+    }
+
     fn set_ready(&self, ready_val: bool) {
         let (lock, cvar) = &*self.ready;
         let mut ready = lock.lock().unwrap();
@@ -210,8 +224,7 @@ impl<H> AIOServer<H> {
     }
 
     pub fn shutdown(&self) {
-        let (sender, _) = &self.datagram;
-        sender.send(b"S").expect("Could not write to unix stream");
+        self.sender.send(LoopTask::Shutdown);
 
         let (lock, cvar) = &*self.ready;
         let mut started = lock.lock().unwrap();
@@ -228,11 +241,5 @@ impl<H> AIOServer<H> {
         while !*started {
             started = cvar.wait(started).unwrap();
         }
-    }
-}
-
-impl<H> Drop for AIOServer<H> {
-    fn drop(&mut self) {
-        self.shutdown();
     }
 }

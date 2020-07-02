@@ -108,19 +108,19 @@ pub fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(ServerConfig) -> () + std::panic::UnwindSafe,
 {
-    let (server, config) = GENERATOR.server();
-    let server = std::sync::Arc::from(server);
-    let clone = server.clone();
-
+    println!("TEST STARTED");
+    let (mut server, config) = GENERATOR.server();
+    let handle = server.handle();
+    println!("SERVER STARTED");
     std::thread::spawn(move || {
         server.start();
     });
 
-    clone.ready();
+    handle.ready();
 
     let result = std::panic::catch_unwind(|| test(config));
 
-    clone.shutdown();
+    handle.shutdown();
 
     assert!(result.is_ok())
 }

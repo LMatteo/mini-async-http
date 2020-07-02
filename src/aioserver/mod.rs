@@ -1,7 +1,7 @@
 mod enhanced_stream;
-mod event_channel;
+pub (crate) mod event_channel;
 mod id_generator;
-mod server;
+pub (crate) mod server;
 mod worker;
 
 pub use server::AIOServer;
