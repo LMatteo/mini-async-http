@@ -147,7 +147,7 @@ impl RequestBuilder {
 }
 
 impl Default for RequestBuilder {
-    fn default() -> Self { 
+    fn default() -> Self {
         RequestBuilder::new()
     }
 }

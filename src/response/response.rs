@@ -151,7 +151,7 @@ impl ResponseBuilder {
 
     pub fn body(self, body: &[u8]) -> Self {
         let len = body.len();
-        let mut builder = self.header("Content-Length",&len.to_string());
+        let mut builder = self.header("Content-Length", &len.to_string());
         builder.body = Option::Some(body.to_vec());
         builder
     }
@@ -194,7 +194,7 @@ impl ResponseBuilder {
     }
 }
 
-impl Default for ResponseBuilder{
+impl Default for ResponseBuilder {
     fn default() -> Self {
         ResponseBuilder::new()
     }

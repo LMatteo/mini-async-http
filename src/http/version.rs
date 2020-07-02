@@ -13,7 +13,7 @@ impl Version {
     }
 }
 
-impl FromStr for Version{
+impl FromStr for Version {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -23,7 +23,6 @@ impl FromStr for Version{
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {

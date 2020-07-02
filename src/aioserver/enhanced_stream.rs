@@ -7,25 +7,25 @@ use std::io::prelude::*;
 use std::io::Error;
 
 use crate::http::parser::ParseError;
-use crate::request::Request;
 use crate::request::request_parser::RequestParser;
+use crate::request::Request;
 
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 #[derive(Debug)]
-pub (crate) enum RequestError {
+pub(crate) enum RequestError {
     EOF,
     ReadError(Error),
     ParseError(ParseError),
 }
-/// Wrapper for a stream to read data from. 
+/// Wrapper for a stream to read data from.
 /// It will try and buffer the maximum data that can be read from the inner Read and store it into its inner buffer
-/// 
+///
 /// Warning : the buffer size is not limited which can be a major security issue
-/// 
+///
 /// Once the stream is read it will try and parse http request, if no request can be parsed from the buffer, it will be left untouched
 /// Everytime a request is read from the buffer, the corresponding section of the buffer is cleared
-pub (crate) struct EnhancedStream<T> {
+pub(crate) struct EnhancedStream<T> {
     id: usize,
     stream: T,
     parser: RequestParser,
@@ -53,7 +53,7 @@ impl<T: Read> EnhancedStream<T> {
     /// Read the inner Read struct and fill the buffer with the data
     /// If a request can be parsed from the inner buffer but is not finished will return an Unexpected End error
     /// Return an error if the inner Stream has reached EOF
-    /// if the stream of byte received is not correctly formated, an error is returned and the stream is stopped 
+    /// if the stream of byte received is not correctly formated, an error is returned and the stream is stopped
     pub fn requests(&mut self) -> Result<Vec<Request>, RequestError> {
         match self.stream.read(&mut self.buffer) {
             Ok(0) => {

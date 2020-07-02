@@ -19,7 +19,7 @@ impl Method {
     }
 }
 
-impl FromStr for Method{
+impl FromStr for Method {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

@@ -53,7 +53,7 @@ impl PartialEq for Headers {
     }
 }
 
-impl Default for Headers{
+impl Default for Headers {
     fn default() -> Self {
         Headers::new()
     }

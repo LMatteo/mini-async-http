@@ -1,6 +1,4 @@
-use mini_async_http::{Request};
-
-
+use mini_async_http::Request;
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};

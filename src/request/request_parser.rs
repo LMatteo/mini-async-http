@@ -5,7 +5,7 @@ use crate::http::Version;
 use crate::request::Request;
 use crate::request::RequestBuilder;
 
-pub (crate) struct RequestParser {}
+pub(crate) struct RequestParser {}
 
 impl RequestParser {
     pub fn new() -> RequestParser {

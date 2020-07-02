@@ -6,7 +6,7 @@ pub enum BuildError {
 }
 
 #[derive(Debug)]
-pub (crate) enum ParseError {
+pub(crate) enum ParseError {
     UnexpectedEnd,
     BuilderError(BuildError),
     LengthParse,

@@ -1,4 +1,3 @@
-use mio::event::Source;
 use mio::net::TcpStream;
 use std::io::{ErrorKind, Write};
 use std::ops::Deref;
@@ -7,27 +6,24 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use mio::{Interest, Registry, Token};
-
 use log::trace;
 
-use crate::aioserver;
-use crate::aioserver::server::SafeStream;
 use crate::aioserver::enhanced_stream::{EnhancedStream, RequestError};
-use crate::aioserver::event_channel::{EventedSender};
+use crate::aioserver::event_channel::EventedSender;
+use crate::aioserver::server::LoopTask;
+use crate::aioserver::server::SafeStream;
 use crate::http::parser::ParseError;
 use crate::request::Request;
 use crate::response::Response;
-use crate::aioserver::server::LoopTask;
 
 type SafeReceiver = Arc<Mutex<Receiver<Job>>>;
 
-pub (crate) enum Job {
+pub(crate) enum Job {
     Stream(SafeStream<TcpStream>),
     Stop,
 }
 
-pub (crate) struct WorkerPool<H> {
+pub(crate) struct WorkerPool<H> {
     job_channel: (Sender<Job>, SafeReceiver),
     job_handle: EventedSender<LoopTask>,
     handler: Arc<H>,
@@ -89,7 +85,7 @@ where
             sender.send(Job::Stop).unwrap();
         }
 
-        while let Some(join) = self.handles.pop(){
+        while let Some(join) = self.handles.pop() {
             join.join().unwrap();
         }
     }
@@ -151,6 +147,8 @@ where
     }
 
     fn close_stream(&self, stream: &EnhancedStream<TcpStream>) {
-        self.delete_sender.send(LoopTask::Close(stream.id())).unwrap();
+        self.delete_sender
+            .send(LoopTask::Close(stream.id()))
+            .unwrap();
     }
 }
