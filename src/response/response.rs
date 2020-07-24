@@ -5,6 +5,7 @@ use crate::response::Reason;
 
 use std::fmt;
 
+/// Represent an HTTP response
 #[derive(Debug, PartialEq)]
 pub struct Response {
     pub code: i32,
@@ -22,7 +23,6 @@ impl fmt::Display for Response {
         buf.push_str("\r\n");
 
         self.headers
-            .get_map()
             .iter()
             .for_each(|(key, value)| buf.push_str(format!("{}: {}\r\n", key, value).as_str()));
 
@@ -38,26 +38,32 @@ impl fmt::Display for Response {
 }
 
 impl Response {
+    /// Return status code of the response
     pub fn code(&self) -> i32 {
         self.code
     }
 
+    /// Return the reason phrase of the response
     pub fn reason(&self) -> &String {
         &self.reason
     }
 
+    /// Return the HTTP version of the response
     pub fn version(&self) -> &Version {
         &self.version
     }
 
+    /// Return the headers of the response
     pub fn headers(&self) -> &Headers {
         &self.headers
     }
 
+    /// Return the body as a byte slice of the response
     pub fn body(&self) -> Option<&Vec<u8>> {
         self.body.as_ref()
     }
 
+    /// Return the body interpreted as an utf 8 string
     pub fn body_as_string(&self) -> Option<String> {
         match self.body.as_ref() {
             Some(val) => match String::from_utf8(val.to_vec()) {
@@ -69,6 +75,7 @@ impl Response {
     }
 }
 
+/// Build a response
 pub struct ResponseBuilder {
     code: Option<i32>,
     reason: Option<String>,
@@ -88,6 +95,7 @@ impl ResponseBuilder {
         }
     }
 
+    /// Set the builer to build a response with an empty body and 500 status code
     pub fn empty_500() -> Self {
         ResponseBuilder::new()
             .code(Reason::INTERNAL500.code())
@@ -95,6 +103,7 @@ impl ResponseBuilder {
             .version(Version::HTTP11)
     }
 
+    /// Set the builer to build a response with an empty body and 200 status code
     pub fn empty_200() -> Self {
         ResponseBuilder::new()
             .code(Reason::OK200.code())
@@ -102,6 +111,7 @@ impl ResponseBuilder {
             .version(Version::HTTP11)
     }
 
+    /// Set the builer to build a response with an empty body and 400 status code
     pub fn empty_400() -> Self {
         ResponseBuilder::new()
             .code(Reason::BADREQUEST400.code())
@@ -109,26 +119,31 @@ impl ResponseBuilder {
             .version(Version::HTTP11)
     }
 
+    /// Set the the status code of the response
     pub fn code(mut self, code: i32) -> Self {
         self.code = Option::Some(code);
         self
     }
 
+    /// Set the reason of the response
     pub fn reason(mut self, reason: String) -> Self {
         self.reason = Option::Some(reason);
         self
     }
 
+    /// Set the HTTP version of the response
     pub fn version(mut self, version: Version) -> Self {
         self.version = Option::Some(version);
         self
     }
 
+    /// Set the header object for the response
     pub fn headers(mut self, headers: Headers) -> Self {
         self.headers = Option::Some(headers);
         self
     }
 
+    /// Set a single header for the response
     pub fn header(mut self, key: &str, value: &str) -> Self {
         let key = &String::from(key);
         let value = &String::from(value);
@@ -145,10 +160,12 @@ impl ResponseBuilder {
         self
     }
 
+    /// Set the "Content_Type" header of the response
     pub fn content_type(self, content_type: &str) -> Self {
         self.header("Content-Type", content_type)
     }
 
+    /// Set the body as a byte slice of the response
     pub fn body(self, body: &[u8]) -> Self {
         let len = body.len();
         let mut builder = self.header("Content-Length", &len.to_string());
@@ -156,6 +173,7 @@ impl ResponseBuilder {
         builder
     }
 
+    /// Set the status of the response (code + reason phrase)
     pub fn status(mut self, status: Reason) -> Self {
         self.code = Some(status.code());
         self.reason = Some(status.reason());
@@ -163,6 +181,8 @@ impl ResponseBuilder {
         self
     }
 
+    /// Build the response from the provided information
+    /// If some informations are missing, BuildError will occur
     pub fn build(self) -> Result<Response, BuildError> {
         let code = match self.code {
             Some(val) => val,

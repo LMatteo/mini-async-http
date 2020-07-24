@@ -110,10 +110,8 @@ pub fn run_test<T>(test: T) -> ()
 where
     T: FnOnce(ServerConfig) -> () + std::panic::UnwindSafe,
 {
-    println!("TEST STARTED");
     let (mut server, config) = GENERATOR.server();
     let handle = server.handle();
-    println!("SERVER STARTED");
     std::thread::spawn(move || {
         server.start();
     });

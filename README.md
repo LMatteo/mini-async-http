@@ -8,9 +8,14 @@ based on the [mio](https://github.com/tokio-rs/mio) library for all that is rela
 You can create a server with the following code :
 
 ```rust
+extern crate mini_async_http;
+
+use mini_async_http::AIOServer;
+use mini_async_http::ResponseBuilder;
+
 pub fn main(){
-    let server = aioserver::AIOServer::new(3, "0.0.0.0:7878", move |request|{
-        response::ResponseBuilder::empty_200()
+    let mut server = AIOServer::new(3, "0.0.0.0:7878", move |request|{
+        ResponseBuilder::empty_200()
             .body(b"Hello")
             .content_type("text/plain")
             .build()

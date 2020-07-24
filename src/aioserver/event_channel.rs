@@ -1,4 +1,4 @@
-use mio::{Poll, Token, Waker};
+use mio::Waker;
 
 use std::sync::mpsc::{Receiver, SendError, Sender};
 use std::sync::Arc;

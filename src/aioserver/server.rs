@@ -32,48 +32,99 @@ pub(crate) enum LoopTask {
     Close(usize),
 }
 
-/// Main struct of the crate, represent the http servers
+/// Main struct of the crate, represent the http server
 pub struct AIOServer<H> {
-    addr: String,
     handler: Arc<H>,
     pool: WorkerPool<H>,
     receiver: Receiver<LoopTask>,
     handle: ServerHandle,
     poll: mio::Poll,
+    server: TcpListener,
 }
 
 impl<H> AIOServer<H>
 where
     H: Send + Sync + 'static + Fn(&Request) -> Response,
 {
+    /// Start the server with the given thread pool size and bind to the given address
+    /// The given function is executed for each http request received
+    ///
+    /// # Argument
+    ///
+    /// * `size` - Number of thread that will be spawned minimum is 1. The total minimum number of thread is 2 :
+    /// 1 to handle request and 1 to run the event loop
+    /// * `addr` - Address the server will bind to. The format is the same as std::net::TcpListener.
+    /// If the address is incorrect or cannot be bound to, the function will panic
+    /// * `handler` - function executed for each received http request
+    ///
+    /// # Example
+    ///
+    /// Create a simple server that will respond with a HTTP response with status 200, content type header
+    /// "text/plain" and body "Hello"
+    ///
+    /// ```
+    /// let server = mini_async_http::AIOServer::new(3, "0.0.0.0:7878", move |request|{
+    ///     mini_async_http::ResponseBuilder::empty_200()
+    ///         .body(b"Hello")
+    ///         .content_type("text/plain")
+    ///         .build()
+    ///         .unwrap()
+    /// });
+    /// ```
     pub fn new(size: i32, addr: &str, handler: H) -> AIOServer<H> {
         let handler = Arc::from(handler);
         let poll = Poll::new().unwrap();
         let waker = Arc::new(Waker::new(poll.registry(), WAKER).unwrap());
-        let (sender, receiver) = channel(waker.clone());
+        let (sender, receiver) = channel(waker);
         let pool = WorkerPool::new(handler.clone(), size, sender.clone());
+        let server = TcpListener::bind(addr.parse().unwrap()).unwrap();
 
         AIOServer {
-            addr: String::from(addr),
             handler,
             pool,
             poll,
             receiver,
             handle: ServerHandle::new(sender),
+            server,
         }
     }
 
+    /// Start the event loop. This call is blocking but you can still interact with the server through the Handle
+    ///
+    /// # Example
+    ///
+    /// Create a simple server and then start it.
+    /// It is started from another thread as the start call is blocking.
+    /// After spawning the thread, wait for the server to be ready and then shut it down
+    ///
+    /// ```
+    /// let mut server = mini_async_http::AIOServer::new(3, "0.0.0.0:7879", move |request|{
+    ///     mini_async_http::ResponseBuilder::empty_200()
+    ///         .body(b"Hello")
+    ///         .content_type("text/plain")
+    ///         .build()
+    ///         .unwrap()
+    /// });
+    /// let handle = server.handle();
+    ///
+    /// std::thread::spawn(move || {
+    ///     server.start();
+    /// });
+    ///
+    /// handle.ready();
+    /// handle.shutdown();
+    ///
+    /// ```
     pub fn start(&mut self) {
         let mut map = HashMap::new();
 
         let mut events = Events::with_capacity(32768);
 
         let mut gen = IdGenerator::new(4);
-        let mut server = TcpListener::bind(self.addr.parse().unwrap()).unwrap();
 
         self.poll
             .registry()
-            .register(&mut server, SERVER, Interest::READABLE)
+            .register(&mut self.server, SERVER, Interest::READABLE)
             .unwrap();
 
         self.pool.start();
@@ -88,7 +139,7 @@ where
             for event in events.iter() {
                 match event.token() {
                     SERVER => loop {
-                        let connection = match server.accept() {
+                        let connection = match self.server.accept() {
                             Ok((conn, _)) => conn,
                             Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                                 break;
@@ -161,6 +212,9 @@ where
 }
 
 impl<H> AIOServer<H> {
+    /// Get a [`ServerHandle`] to this server
+    ///
+    /// [`ServerHandle`]: struct.ServerHandle.html
     pub fn handle(&self) -> ServerHandle {
         self.handle.clone()
     }
@@ -201,7 +255,9 @@ impl<H> Drop for AIOServer<H> {
         self.handle.shutdown();
     }
 }
-
+/// Clonable handle to a server.
+/// Can only be retrieved from a Server instance.
+/// Used to wait for the server to be ready or to shut it down.
 #[derive(Clone)]
 pub struct ServerHandle {
     ready: Status,
@@ -224,8 +280,33 @@ impl ServerHandle {
         cvar.notify_all();
     }
 
+    /// Send a shutdown signal to the server.
+    /// The server wait for all the received request to be handled and the stop
+    ///
+    /// # Example
+    ///
+    /// Creates a server and starts it. From another thread we send the shutdown signal
+    /// causing the server to stop and the program to end.
+    ///
+    /// ```
+    /// let mut server = mini_async_http::AIOServer::new(3, "0.0.0.0:7880", move |request|{
+    ///     mini_async_http::ResponseBuilder::empty_200()
+    ///         .body(b"Hello")
+    ///         .content_type("text/plain")
+    ///         .build()
+    ///         .unwrap()
+    /// });
+    /// let handle = server.handle();
+    ///
+    /// std::thread::spawn(move || {
+    ///     handle.shutdown();
+    /// });
+    ///
+    /// server.start();
+    ///
+    /// ```
     pub fn shutdown(&self) {
-        self.sender.send(LoopTask::Shutdown);
+        self.sender.send(LoopTask::Shutdown).unwrap();
 
         let (lock, cvar) = &*self.ready;
         let mut started = lock.lock().unwrap();
@@ -235,6 +316,30 @@ impl ServerHandle {
         }
     }
 
+    /// Block untill the server is ready to receive requests
+    ///
+    /// # Example
+    ///
+    /// Creates a server and starts it in a separate thread.
+    /// The main thread waits for the server to be ready and then ends
+    ///
+    /// ```
+    /// let mut server = mini_async_http::AIOServer::new(3, "0.0.0.0:7880", move |request|{
+    ///     mini_async_http::ResponseBuilder::empty_200()
+    ///         .body(b"Hello")
+    ///         .content_type("text/plain")
+    ///         .build()
+    ///         .unwrap()
+    /// });
+    /// let handle = server.handle();
+    ///
+    /// std::thread::spawn(move || {
+    ///     server.start();
+    /// });
+    ///
+    /// handle.ready();
+    ///
+    /// ```
     pub fn ready(&self) {
         let (lock, cvar) = &*self.ready;
         let mut started = lock.lock().unwrap();

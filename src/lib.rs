@@ -6,7 +6,9 @@ mod http;
 mod request;
 mod response;
 
+pub use aioserver::server::ServerHandle;
 pub use aioserver::AIOServer;
+pub use http::parser::ParseError;
 pub use http::BuildError;
 pub use http::Headers;
 pub use http::Method;
