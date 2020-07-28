@@ -33,17 +33,23 @@ Here is an example with a simple counter that is incremented on every request :
 
 
 ```rust
-pub fn main(){
+extern crate mini_async_http;
+
+use mini_async_http::AIOServer;
+use mini_async_http::ResponseBuilder;
+use std::sync::{Arc, Mutex};
+
+pub fn main() {
     let counter = Arc::from(Mutex::from(0));
 
-    let server = aioserver::AIOServer::new(3, "0.0.0.0:7878", move |request|{
+    let mut server = AIOServer::new(3, "0.0.0.0:7878", move |request| {
         let lock = counter.clone();
         let mut counter = lock.lock().unwrap();
 
         let body = counter.to_string();
-        *counter +=1;
+        *counter += 1;
 
-        response::ResponseBuilder::empty_200()
+        ResponseBuilder::empty_200()
             .body(body.as_bytes())
             .content_type("text/plain")
             .build()
@@ -73,10 +79,4 @@ be removed from the watch list and dropped.
 to end the event loop
 
 It is important that no calculation is done in the event loop as it is the core of the server performance. 
-
-## Unix limitation
-
-Currently, the server is only supported on Unix systems. This limitation come from the fact that it does not 
-seem possible to integrate rust channel to the mio event loop. A channel is used for the event 3 and 4 described in 
-the previous section. Mio can listen for event on any type that implement the rust trait [AsRawFd](https://doc.rust-lang.org/std/os/unix/io/trait.AsRawFd.html). So the channel that I used are backed by UnixDatagram. 
 

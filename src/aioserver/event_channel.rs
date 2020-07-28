@@ -41,6 +41,7 @@ impl<T> Clone for EventedSender<T> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use mio::{Poll, Token};
 
     #[test]
     fn send() {
