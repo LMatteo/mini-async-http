@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
-/// mini-async-http is a tiny http server. I have built it in order to practive and learn the rust language.
+/// mini-async-http is a tiny http server. I have built it in order to practice and learn the rust language.
 mod aioserver;
 mod http;
 mod request;
 mod response;
+mod io;
 
 pub use aioserver::server::ServerHandle;
 pub use aioserver::AIOServer;
