@@ -78,7 +78,6 @@ fn multiple_get() {
     
 }
 
-#[test]
 fn multiple_post() {
     run_test(|config| {
         let mut handles = Vec::new();
