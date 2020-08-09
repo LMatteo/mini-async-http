@@ -4,10 +4,8 @@ rust:
   - beta
   - nightly
 os:
-  - windows
   - linux
 jobs:
   allow_failures:
     - rust: nightly
-    - os: windows
   fast_finish: true
