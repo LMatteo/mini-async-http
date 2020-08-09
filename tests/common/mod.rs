@@ -83,7 +83,7 @@ fn server(port: &str) -> AIOServer<Handler> {
 }
 
 fn addr(port: &str) -> String {
-    format!("0.0.0.0:{}", port)
+    format!("127.0.0.1:{}", port)
 }
 
 fn http_addr(port: &str) -> String {
