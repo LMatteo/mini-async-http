@@ -3,6 +3,9 @@ rust:
   - stable
   - beta
   - nightly
+os:
+  - windows
+  - linux
 jobs:
   allow_failures:
     - rust: nightly
