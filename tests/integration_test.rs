@@ -78,6 +78,7 @@ fn multiple_get() {
     
 }
 
+#[test]
 fn multiple_post() {
     run_test(|config| {
         let mut handles = Vec::new();
@@ -98,6 +99,7 @@ fn multiple_post() {
                     let response = http_req::request::RequestBuilder::new(&uri)
                         .method(http_req::request::Method::POST)
                         .body(b"TEST")
+                        .header("Content-length", "4")
                         .header("Connection", "Keep-Alive")
                         .send(&mut stream, &mut writer)
                         .unwrap();
