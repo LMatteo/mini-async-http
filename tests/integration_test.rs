@@ -1,9 +1,6 @@
 use mini_async_http::Request;
 
-use std::io::Write;
 use std::net::TcpStream;
-use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
 
 mod common;
 
@@ -19,7 +16,7 @@ enum Job {
 fn simple_get_request() {
     run_test(|config| {
         let mut writer = Vec::new();
-        let res = http_req::request::get(config.http_addr.as_str(), &mut writer).unwrap();
+        let _res = http_req::request::get(config.http_addr.as_str(), &mut writer).unwrap();
 
         let body = std::str::from_utf8(&writer).unwrap();
 
@@ -32,7 +29,7 @@ fn simple_post_request() {
     run_test(|config| {
         let mut writer = Vec::new();
         let body = b"RequestBody";
-        let res = http_req::request::post(config.http_addr.as_str(), body, &mut writer).unwrap();
+        let _res = http_req::request::post(config.http_addr.as_str(), body, &mut writer).unwrap();
 
         let body = std::str::from_utf8(&writer).unwrap();
 
@@ -48,7 +45,7 @@ fn multiple_get() {
         const NB_PARALLEL: i8 = 20;
         const NB_REQUEST: i8 = 20;
 
-        for i in 0..NB_PARALLEL {
+        for _i in 0..NB_PARALLEL {
             let config = config.clone();
             handles.push(std::thread::spawn(move || {
                 let addr = config.http_addr.as_str();
@@ -56,10 +53,10 @@ fn multiple_get() {
                 let mut stream =
                     TcpStream::connect((uri.host().unwrap(), uri.corr_port())).unwrap();
 
-                for i in 0..NB_REQUEST {
+                for _i in 0..NB_REQUEST {
                     let mut writer = Vec::new();
 
-                    let response = http_req::request::RequestBuilder::new(&uri)
+                    let _response = http_req::request::RequestBuilder::new(&uri)
                         .method(http_req::request::Method::GET)
                         .header("Connection", "Keep-Alive")
                         .send(&mut stream, &mut writer)
@@ -85,7 +82,7 @@ fn multiple_post() {
         const NB_PARALLEL: i8 = 20;
         const NB_REQUEST: i8 = 20;
 
-        for i in 0..NB_PARALLEL {
+        for _i in 0..NB_PARALLEL {
             let config = config.clone();
             handles.push(std::thread::spawn(move || {
                 let addr = config.http_addr.as_str();
@@ -93,10 +90,10 @@ fn multiple_post() {
                 let mut stream =
                     TcpStream::connect((uri.host().unwrap(), uri.corr_port())).unwrap();
 
-                for i in 0..NB_REQUEST {
+                for _i in 0..NB_REQUEST {
                     let mut writer = Vec::new();
 
-                    let response = http_req::request::RequestBuilder::new(&uri)
+                    let _response = http_req::request::RequestBuilder::new(&uri)
                         .method(http_req::request::Method::POST)
                         .body(b"TEST")
                         .header("Content-length", "4")

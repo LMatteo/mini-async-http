@@ -7,7 +7,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use crate::io::context;
-use crate::io::reactor::Handle;
+
 use crate::io::reactor::IoWaker;
 
 pub(crate) struct TcpListener {
@@ -55,7 +55,7 @@ impl Future for AcceptFuture<'_> {
         match self.listener.inner.accept() {
             Ok(result) => Poll::Ready(Ok(result)),
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
-            Err(e) => Poll::Ready(Err(AcceptError::Err)),
+            Err(_e) => Poll::Ready(Err(AcceptError::Err)),
         }
     }
 }

@@ -1,12 +1,8 @@
 use crossbeam_channel::{bounded, Receiver, Sender};
-use mio;
 use slab::Slab;
 
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::sync::mpsc;
 use std::sync::Arc;
-use std::sync::Mutex;
+
 use std::task::Waker;
 
 use crossbeam_utils::atomic::AtomicCell;

@@ -195,7 +195,7 @@ mod tests {
     impl AsyncRead for TestReader {
         fn poll_read(
             self: Pin<&mut Self>,
-            cx: &mut Context,
+            _cx: &mut Context,
             buf: &mut [u8],
         ) -> Poll<Result<usize, Error>> {
             match self.get_mut().inner.read(buf) {
@@ -211,7 +211,7 @@ mod tests {
         d.push(path);
 
         let mut read = Vec::new();
-        let file = fs::File::open(d).unwrap().read_to_end(&mut read);
+        let _file = fs::File::open(d).unwrap().read_to_end(&mut read);
 
         std::io::Cursor::new(read)
     }

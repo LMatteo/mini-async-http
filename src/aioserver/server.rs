@@ -6,10 +6,7 @@ use crate::response::Response;
 use std::io::Write;
 use std::net::SocketAddr;
 
-use log::{error, trace};
 use std::ops::Drop;
-
-use std::collections::HashMap;
 
 use crossbeam_utils::atomic::AtomicCell;
 use std::sync::{Arc, Condvar, Mutex};
@@ -58,7 +55,7 @@ where
     ///         .unwrap()
     /// });
     /// ```
-    pub fn new(size: i32, addr: &str, handler: H) -> AIOServer<H> {
+    pub fn new(_size: i32, addr: &str, handler: H) -> AIOServer<H> {
         let addr = addr.parse().unwrap();
         let stop_sender = Arc::from(AtomicCell::new(None));
 
@@ -225,7 +222,7 @@ impl ServerHandle {
             None => return,
         };
 
-        if let Err(_) = sender.send(()) {
+        if sender.send(()).is_err() {
             return;
         }
 

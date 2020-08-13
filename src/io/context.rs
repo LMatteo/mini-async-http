@@ -44,7 +44,7 @@ where
 {
     EXECUTOR.with(|ctx| match *ctx.borrow() {
         (_, Some(ref spawner)) => spawner.spawn(future),
-        (_, _) => return,
+        (_, _) => {}
     })
 }
 
@@ -57,7 +57,7 @@ where
             spawner.spawn(future);
             exec.run();
         }
-        (_, _) => return,
+        (_, _) => {}
     })
 }
 
@@ -66,7 +66,7 @@ pub(crate) fn stop() {
         (_, Some(ref spawner)) => {
             spawner.stop();
         }
-        (_, _) => return,
+        (_, _) => {}
     })
 }
 

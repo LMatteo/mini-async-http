@@ -2,7 +2,6 @@ use futures::io::Error;
 use futures::AsyncRead;
 use mio::net;
 
-use std::future::Future;
 use std::io::Read;
 use std::io::Write;
 use std::pin::Pin;
@@ -11,7 +10,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use crate::io::context;
-use crate::io::reactor::Handle;
+
 use crate::io::reactor::IoWaker;
 
 pub struct TcpStream {
