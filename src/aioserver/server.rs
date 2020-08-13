@@ -1,45 +1,32 @@
 use crate::aioserver::enhanced_stream::EnhancedStream;
-use crate::aioserver::event_channel::{channel, EventedSender};
-use crate::aioserver::id_generator::IdGenerator;
-use crate::aioserver::worker::WorkerPool;
+use crate::io::context;
 use crate::request::Request;
 use crate::response::Response;
 
-use std::io::ErrorKind;
+use std::io::Write;
+use std::net::SocketAddr;
 
 use log::{error, trace};
 use std::ops::Drop;
 
 use std::collections::HashMap;
 
-use std::sync::mpsc::Receiver;
+use crossbeam_utils::atomic::AtomicCell;
 use std::sync::{Arc, Condvar, Mutex};
 
-use mio::net::{TcpListener, TcpStream};
-
-use mio::{Events, Interest, Poll, Token, Waker};
-
-const SERVER: Token = Token(0);
-const SHUTDOWN: Token = Token(1);
-const DELETE: Token = Token(2);
-const WAKER: Token = Token(3);
+use futures::channel::oneshot;
+use futures::future::FutureExt;
 
 type Status = Arc<(Mutex<bool>, Condvar)>;
 pub(crate) type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
 
-pub(crate) enum LoopTask {
-    Shutdown,
-    Close(usize),
-}
-
 /// Main struct of the crate, represent the http server
 pub struct AIOServer<H> {
     handler: Arc<H>,
-    pool: WorkerPool<H>,
-    receiver: Receiver<LoopTask>,
     handle: ServerHandle,
-    poll: mio::Poll,
-    server: TcpListener,
+    addr: SocketAddr,
+
+    stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>,
 }
 
 impl<H> AIOServer<H>
@@ -72,20 +59,14 @@ where
     /// });
     /// ```
     pub fn new(size: i32, addr: &str, handler: H) -> AIOServer<H> {
-        let handler = Arc::from(handler);
-        let poll = Poll::new().unwrap();
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER).unwrap());
-        let (sender, receiver) = channel(waker);
-        let pool = WorkerPool::new(handler.clone(), size, sender.clone());
-        let server = TcpListener::bind(addr.parse().unwrap()).unwrap();
+        let addr = addr.parse().unwrap();
+        let stop_sender = Arc::from(AtomicCell::new(None));
 
         AIOServer {
-            handler,
-            pool,
-            poll,
-            receiver,
-            handle: ServerHandle::new(sender),
-            server,
+            handler: Arc::from(handler),
+            handle: ServerHandle::new(stop_sender.clone()),
+            addr,
+            stop_sender,
         }
     }
 
@@ -116,98 +97,60 @@ where
     ///
     /// ```
     pub fn start(&mut self) {
-        let mut map = HashMap::new();
+        context::start();
 
-        let mut events = Events::with_capacity(32768);
+        self.async_run();
 
-        let mut gen = IdGenerator::new(4);
+        self.handle.set_ready(false);
+    }
 
-        self.poll
-            .registry()
-            .register(&mut self.server, SERVER, Interest::READABLE)
-            .unwrap();
+    fn async_run(&mut self) {
+        let handler = self.handler.clone();
+        let handle = self.handle();
+        let addr = self.addr;
 
-        self.pool.start();
+        let (stop_sender, stop_receiver) = oneshot::channel::<()>();
+        self.stop_sender.store(Some(stop_sender));
 
-        self.handle.set_ready(true);
+        let server = async move {
+            let listener = crate::io::tcp_listener::TcpListener::bind(addr);
+            handle.set_ready(true);
 
-        loop {
-            trace!("Opened connection: {}", map.len());
-            trace!("Connection pool capacity: {}", map.capacity());
-            self.poll.poll(&mut events, None).unwrap();
+            let receiver = stop_receiver.fuse();
+            futures::pin_mut!(receiver);
 
-            for event in events.iter() {
-                match event.token() {
-                    SERVER => loop {
-                        let connection = match self.server.accept() {
-                            Ok((conn, _)) => conn,
-                            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
-                                break;
-                            }
-                            Err(e) => {
-                                error!("Error when accepting conn : {}", e);
-                                continue;
-                            }
+            loop {
+                let accept = listener.accept().fuse();
+                futures::pin_mut!(accept);
+
+                let connection = futures::select! {
+                    conn = accept => conn,
+                    _ = receiver => {context::stop(); return},
+                };
+                let connection = match connection {
+                    Ok((conn, _)) => conn,
+                    Err(_) => return,
+                };
+
+                let handler = handler.clone();
+                context::spawn(async move {
+                    let connection = crate::io::tcp_stream::TcpStream::from_stream(connection);
+                    let mut stream = EnhancedStream::new(0, connection);
+                    loop {
+                        let requests = match stream.poll_requests().await {
+                            Ok(reqs) => reqs,
+                            Err(_) => return,
                         };
 
-                        let id = gen.id();
-                        let token = Token(id);
-                        let mut stream = EnhancedStream::new(id, connection);
-
-                        match self
-                            .poll
-                            .registry()
-                            .register(&mut stream, token, Interest::READABLE)
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                if stream.shutdown().is_err() {
-                                    trace!("Error when shutting down not registered connection")
-                                }
-                                error!("Error when registering conn : {}", e);
-                                continue;
-                            }
-                        }
-
-                        let stream = Arc::from(Mutex::from(stream));
-                        map.insert(token, stream.clone());
-                        self.pool.work(stream).unwrap();
-
-                        trace!("New client with id : {}", id);
-                    },
-                    WAKER => {
-                        while let Ok(task) = self.receiver.try_recv() {
-                            match task {
-                                LoopTask::Shutdown => {
-                                    trace!("Shutting down");
-                                    self.pool.join();
-                                    self.handle.set_ready(false);
-                                    return;
-                                }
-                                LoopTask::Close(id) => {
-                                    AIOServer::<H>::remove_connection(
-                                        id, &mut map, &self.poll, &mut gen,
-                                    );
-                                }
-                            }
+                        for request in requests {
+                            let response = (handler.clone())(&request);
+                            write!(stream, "{}", response).unwrap();
                         }
                     }
-                    token => {
-                        trace!("Data from id : {}", token.0);
-
-                        let stream = match map.get(&token) {
-                            Some(stream) => stream.clone(),
-                            None => {
-                                error!("Could not retrieve stream with id : {}", token.0);
-                                continue;
-                            }
-                        };
-
-                        self.pool.work(stream).unwrap();
-                    }
-                }
+                });
             }
-        }
+        };
+        context::block_on(server);
     }
 }
 
@@ -217,36 +160,6 @@ impl<H> AIOServer<H> {
     /// [`ServerHandle`]: struct.ServerHandle.html
     pub fn handle(&self) -> ServerHandle {
         self.handle.clone()
-    }
-
-    fn remove_connection(
-        id: usize,
-        map: &mut HashMap<Token, SafeStream<TcpStream>>,
-        poll: &Poll,
-        generator: &mut IdGenerator,
-    ) {
-        let to_close = match map.remove(&Token(id)) {
-            Some(val) => val,
-            None => return,
-        };
-
-        let mut to_close = to_close.lock().unwrap();
-
-        match to_close.shutdown() {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Issue when closing TCP connection {} : {}", id, e);
-            }
-        };
-
-        match poll.registry().deregister(&mut (*to_close)) {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Issue when deregistering connection {} : {}", id, e);
-            }
-        };
-
-        generator.remove(id);
     }
 }
 
@@ -261,14 +174,14 @@ impl<H> Drop for AIOServer<H> {
 #[derive(Clone)]
 pub struct ServerHandle {
     ready: Status,
-    sender: EventedSender<LoopTask>,
+    stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>,
 }
 
 impl ServerHandle {
-    fn new(sender: EventedSender<LoopTask>) -> Self {
+    fn new(stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>) -> Self {
         ServerHandle {
             ready: Arc::new((Mutex::from(false), Condvar::new())),
-            sender,
+            stop_sender,
         }
     }
 
@@ -280,13 +193,13 @@ impl ServerHandle {
         cvar.notify_all();
     }
 
-    /// Send a shutdown signal to the server.
-    /// The server wait for all the received request to be handled and the stop
+    /// Send a shutdown signal to the server and wait for it to stop.
+    /// If the server is not started, the function returns immediately.
     ///
     /// # Example
     ///
     /// Creates a server and starts it. From another thread we send the shutdown signal
-    /// causing the server to stop and the program to end.
+    /// causing the server to stop and the execution to end.
     ///
     /// ```
     /// let mut server = mini_async_http::AIOServer::new(3, "127.0.0.1:7880", move |request|{
@@ -299,6 +212,7 @@ impl ServerHandle {
     /// let handle = server.handle();
     ///
     /// std::thread::spawn(move || {
+    ///     handle.ready();
     ///     handle.shutdown();
     /// });
     ///
@@ -306,7 +220,14 @@ impl ServerHandle {
     ///
     /// ```
     pub fn shutdown(&self) {
-        self.sender.send(LoopTask::Shutdown).unwrap();
+        let sender = match self.stop_sender.take() {
+            Some(val) => val,
+            None => return,
+        };
+
+        if let Err(_) = sender.send(()) {
+            return;
+        }
 
         let (lock, cvar) = &*self.ready;
         let mut started = lock.lock().unwrap();

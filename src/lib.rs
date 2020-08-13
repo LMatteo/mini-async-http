@@ -2,10 +2,11 @@
 
 /// mini-async-http is a tiny http server. I have built it in order to practice and learn the rust language.
 mod aioserver;
+mod executor;
 mod http;
+mod io;
 mod request;
 mod response;
-mod io;
 
 pub use aioserver::server::ServerHandle;
 pub use aioserver::AIOServer;
