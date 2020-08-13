@@ -19,7 +19,7 @@ pub(crate) enum AcceptError{
 } 
 
 impl TcpListener {
-    pub(crate) fn new(addr: std::net::SocketAddr, handle: &Handle) -> TcpListener {
+    pub(crate) fn bind(addr: std::net::SocketAddr, handle: &Handle) -> TcpListener {
         let mut inner = net::TcpListener::bind(addr).unwrap();
         let waker = handle.register(&mut inner);
 

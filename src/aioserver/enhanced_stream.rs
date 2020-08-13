@@ -33,6 +33,29 @@ pub(crate) struct EnhancedStream<T> {
     buffer: [u8; DEFAULT_BUF_SIZE],
 }
 
+impl<T> EnhancedStream<T> {
+    fn parse_buf(&mut self) -> Result<Vec<Request>, RequestError> {
+        let mut requests = Vec::new();
+
+        loop {
+            match self.parser.parse_u8(&self.read) {
+                Ok((req, n)) => {
+                    requests.push(req);
+                    self.read = self.read.split_off(n);
+
+                    if self.read.is_empty() {
+                        break;
+                    }
+                }
+                Err(ParseError::UnexpectedEnd) => break,
+                Err(e) => return Err(RequestError::ParseError(e)),
+            }
+        }
+
+        Ok(requests)
+    }
+}
+
 impl<T: Read> EnhancedStream<T> {
     /// Create a new EnhancedStream from a Read struct and the associated id
     pub fn new(id: usize, stream: T) -> EnhancedStream<T> {
@@ -70,26 +93,32 @@ impl<T: Read> EnhancedStream<T> {
             }
         }
 
-        let mut requests = Vec::new();
+        self.parse_buf()
+    }
+}
 
-        loop {
-            match self.parser.parse_u8(&self.read) {
-                Ok((req, n)) => {
-                    requests.push(req);
-                    self.read = self.read.split_off(n);
-
-                    if self.read.is_empty() {
-                        break;
-                    }
-                }
-                Err(ParseError::UnexpectedEnd) => break,
-                Err(e) => return Err(RequestError::ParseError(e)),
+impl<T> EnhancedStream<T>
+    where T: futures::AsyncReadExt + Unpin {
+    pub(crate) async fn poll_requests(&mut self) -> Result<Vec<Request>, RequestError> {
+        match self.stream.read(&mut self.buffer).await {
+            Ok(0) => {
+                trace!("Reached EOF for {}", self.id);
+                return Err(RequestError::EOF);
+            }
+            Ok(n) => {
+                self.read.extend_from_slice(&self.buffer[0..n]);
+                trace!("Read {} bytes from {}", n, self.id);
+            }
+            Err(e) => {
+                trace!("Error {:?} when reading {}", e, self.id);
+                return Err(RequestError::ReadError(e));
             }
         }
 
-        Ok(requests)
+            self.parse_buf()
+        }
     }
-}
+} 
 
 /// Implement Shutdown for the std implementation of TcpStream
 impl EnhancedStream<std::net::TcpStream> {
