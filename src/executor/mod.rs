@@ -6,13 +6,18 @@ use {
     },
     std::{
         future::Future,
-        sync::mpsc::{sync_channel, Receiver, SyncSender},
         sync::Arc,
         task::{Context, Poll},
     },
 };
+use crossbeam_channel::Sender;
+use crossbeam_channel::Receiver;
 
-enum ExecutorMessage {
+use std::sync::mpsc;
+
+pub mod thread_pool;
+
+pub(crate) enum ExecutorMessage {
     Task(Arc<Task>),
     Stop,
 }
@@ -25,7 +30,7 @@ pub struct Executor {
 /// `Spawner` spawns new futures onto the task channel.
 #[derive(Clone)]
 pub struct Spawner {
-    task_sender: SyncSender<ExecutorMessage>,
+    task_sender: Sender<ExecutorMessage>,
 }
 
 /// A future that can reschedule itself to be polled by an `Executor`.
@@ -33,7 +38,17 @@ pub struct Task {
     future: atomic::AtomicCell<Option<BoxFuture<'static, ()>>>,
 
     /// Handle to place the task itself back onto the task queue.
-    task_sender: SyncSender<ExecutorMessage>,
+    task_sender: Sender<ExecutorMessage>,
+
+    notify_queue: Option<mpsc::SyncSender<()>>,
+}
+
+impl Task{
+    pub(crate) fn notify(&self){
+        if let Some(ref queue) = self.notify_queue {
+            queue.send(());
+        }
+    }
 }
 
 pub fn new_executor_and_spawner() -> (Executor, Spawner) {
@@ -41,7 +56,7 @@ pub fn new_executor_and_spawner() -> (Executor, Spawner) {
     // This is just to make `sync_channel` happy, and wouldn't be present in
     // a real executor.
     const MAX_QUEUED_TASKS: usize = 10_000;
-    let (task_sender, ready_queue) = sync_channel(MAX_QUEUED_TASKS);
+    let (task_sender, ready_queue) = crossbeam_channel::bounded(MAX_QUEUED_TASKS);
     (Executor { ready_queue }, Spawner { task_sender })
 }
 
@@ -51,6 +66,7 @@ impl Spawner {
         let task = Arc::new(Task {
             future: atomic::AtomicCell::new(Some(future)),
             task_sender: self.task_sender.clone(),
+            notify_queue: None,
         });
         self.task_sender
             .send(ExecutorMessage::Task(task))

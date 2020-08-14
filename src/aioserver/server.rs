@@ -122,7 +122,7 @@ where
 
                 let connection = futures::select! {
                     conn = accept => conn,
-                    _ = receiver => {context::stop(); return},
+                    _ = receiver => {return},
                 };
                 let connection = match connection {
                     Ok((conn, _)) => conn,

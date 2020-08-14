@@ -247,6 +247,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mio",
+ "num_cpus",
  "slab",
 ]
 
