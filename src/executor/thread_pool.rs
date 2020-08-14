@@ -13,6 +13,8 @@ use std::sync::mpsc;
 
 use crate::executor::ExecutorMessage;
 use crate::executor::Task;
+use crate::executor::worker::Worker;
+use crate::io::context;
 
 use log::trace;
 
@@ -77,23 +79,13 @@ impl ThreadPoolBuilder {
             let start = self.start.clone();
             let stop = self.stop.clone();
             let handle = handle.clone();
+            let worker = Worker::new(sender.clone(), ready_queue);
+
             let handle = std::thread::spawn(move || {
                 (start)(i,handle);  
+                context::set_worker(worker.clone());
 
-                while let Ok(ExecutorMessage::Task(task)) = ready_queue.recv() {
-                    
-                    let future_slot = task.future.take();
-                    if let Some(mut future) = future_slot {
-                        let waker = waker_ref(&task);
-                        let context = &mut Context::from_waker(&*waker);
-                        
-                        if let Poll::Pending = future.as_mut().poll(context) {
-                            task.future.store(Some(future));
-                        } else {
-                            task.notify();
-                        }
-                    }
-                }
+                worker.run();    
 
                 (stop)(i);
             });

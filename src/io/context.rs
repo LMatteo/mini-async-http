@@ -1,9 +1,7 @@
-use crate::executor::new_executor_and_spawner;
-use crate::executor::Executor;
-use crate::executor::Spawner;
 use crate::io::reactor::Handle;
 use crate::io::reactor::Reactor;
 use crate::executor::thread_pool::{PoolHandle,PoolError,ThreadPoolBuilder};
+use crate::executor::worker::Worker;
 
 
 use std::cell::RefCell;
@@ -12,6 +10,7 @@ use std::future::Future;
 thread_local! {
     static HANDLE : RefCell<Option<Handle>> = RefCell::from(None);
     static EXECUTOR : RefCell<Option<PoolHandle>> = RefCell::from(None);
+    static WORKER : RefCell<Option<Worker>> = RefCell::from(None);
 }
 
 pub(crate) fn start() {
@@ -50,14 +49,28 @@ fn set_pool(pool: PoolHandle){
     EXECUTOR.with(|ctx| ctx.replace(Some(pool)));
 }
 
+pub(crate)fn set_worker(worker: Worker) {
+    WORKER.with(|ctx| ctx.replace(Some(worker)));
+}
+
 pub(crate) fn spawn<F>(future: F)
 where
     F: Future<Output = ()> + Send + 'static,
 {
-    EXECUTOR.with(|ctx| match *ctx.borrow() {
-        Some(ref spawner) => {spawner.spawn(future);},
-        _ => {},
+    let future = WORKER.with(|ctx| match *ctx.borrow() {
+        Some(ref worker) => {
+            worker.enqueue(future); 
+            None
+        },
+        _ => Some(future),
     });
+
+    if let Some(future) = future {
+        EXECUTOR.with(|ctx| match *ctx.borrow() {
+            Some(ref spawner) => {spawner.spawn(future);},
+            _ => {},
+        });
+    }
 }
 
 pub(crate) fn block_on<F>(future: F)

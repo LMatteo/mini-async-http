@@ -16,6 +16,7 @@ use crossbeam_channel::Receiver;
 use std::sync::mpsc;
 
 pub mod thread_pool;
+pub mod worker;
 
 pub(crate) enum ExecutorMessage {
     Task(Arc<Task>),
