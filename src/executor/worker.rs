@@ -1,7 +1,7 @@
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_queue::{ArrayQueue, PushError};
-use crossbeam_utils::atomic;
+
 use futures::task::waker_ref;
 use futures::FutureExt;
 use std::future::Future;
@@ -10,8 +10,8 @@ use std::task::Poll;
 
 use std::sync::Arc;
 
-use crate::executor::{ExecutorMessage, Task};
 use crate::data::AtomicTake;
+use crate::executor::{ExecutorMessage, Task};
 
 #[derive(Clone)]
 pub(crate) struct Worker {

@@ -1,18 +1,18 @@
 use crossbeam_utils::atomic::AtomicCell;
 
-pub struct AtomicTake<T>{
+pub struct AtomicTake<T> {
     inner: AtomicCell<Option<T>>,
 }
 
 impl<T> AtomicTake<T> {
-    pub(crate) fn new() -> AtomicTake<T>{
-        AtomicTake{
-            inner: AtomicCell::new(None)
+    pub(crate) fn new() -> AtomicTake<T> {
+        AtomicTake {
+            inner: AtomicCell::new(None),
         }
     }
 
     pub(crate) fn from(value: T) -> AtomicTake<T> {
-        AtomicTake{
+        AtomicTake {
             inner: AtomicCell::new(Option::from(value)),
         }
     }
@@ -27,17 +27,17 @@ impl<T> AtomicTake<T> {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use super::*;
     use std::sync::mpsc;
-    use std::sync::{Arc,Barrier};
+    use std::sync::{Arc, Barrier};
 
     #[test]
     fn take() {
         let val = 3;
         let take = AtomicTake::from(val);
 
-        assert_eq!(val,take.take().expect("Missing value"));
+        assert_eq!(val, take.take().expect("Missing value"));
     }
 
     #[test]
@@ -58,12 +58,12 @@ mod test{
         let store = 5;
         take.store(store);
 
-        assert_eq!(store,take.take().expect("Missing value"));
+        assert_eq!(store, take.take().expect("Missing value"));
     }
 
     #[test]
     fn parallel_take() {
-        let (sender,receiver) = mpsc::channel();
+        let (sender, receiver) = mpsc::channel();
 
         let nb_thread = 20;
 
@@ -81,12 +81,12 @@ mod test{
                     Some(val) => {
                         sender.send(val).expect("Error when sending value");
                     }
-                    None => {},
+                    None => {}
                 }
             });
         }
 
-        assert_eq!(val,receiver.recv().expect("Missing value"));
+        assert_eq!(val, receiver.recv().expect("Missing value"));
         assert!(receiver.try_recv().is_err());
     }
 
@@ -98,9 +98,6 @@ mod test{
         let val = 3;
         take.store(val);
 
-        assert_eq!(val,take.take().expect("Missing value"));
+        assert_eq!(val, take.take().expect("Missing value"));
     }
 }
-
-
-

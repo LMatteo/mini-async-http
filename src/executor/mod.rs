@@ -1,5 +1,4 @@
 use {
-    crossbeam_utils::atomic,
     futures::{
         future::{BoxFuture, FutureExt},
         task::{waker_ref, ArcWake},

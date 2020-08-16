@@ -1,8 +1,8 @@
 use crate::aioserver::enhanced_stream::EnhancedStream;
+use crate::data::AtomicTake;
 use crate::io::context;
 use crate::request::Request;
 use crate::response::Response;
-use crate::data::AtomicTake;
 
 use std::io::Write;
 use std::net::SocketAddr;

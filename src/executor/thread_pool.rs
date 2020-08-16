@@ -7,11 +7,11 @@ use futures::FutureExt;
 
 use std::sync::mpsc;
 
+use crate::data::AtomicTake;
 use crate::executor::worker::Worker;
 use crate::executor::ExecutorMessage;
 use crate::executor::Task;
 use crate::io::context;
-use crate::data::AtomicTake;
 
 use log::trace;
 
