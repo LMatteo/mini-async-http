@@ -10,8 +10,11 @@ use {
         task::{Context, Poll},
     },
 };
-use crossbeam_channel::Sender;
+
+use log::error;
+
 use crossbeam_channel::Receiver;
+use crossbeam_channel::Sender;
 
 use std::sync::mpsc;
 
@@ -44,10 +47,12 @@ pub struct Task {
     notify_queue: Option<mpsc::SyncSender<()>>,
 }
 
-impl Task{
-    pub(crate) fn notify(&self){
+impl Task {
+    pub(crate) fn notify(&self) {
         if let Some(ref queue) = self.notify_queue {
-            queue.send(());
+            if queue.send(()).is_err() {
+                error!("Issue when notifying block on request");
+            }
         }
     }
 }

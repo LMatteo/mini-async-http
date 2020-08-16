@@ -1,8 +1,7 @@
+use crate::executor::thread_pool::{PoolHandle, ThreadPoolBuilder};
+use crate::executor::worker::Worker;
 use crate::io::reactor::Handle;
 use crate::io::reactor::Reactor;
-use crate::executor::thread_pool::{PoolHandle,PoolError,ThreadPoolBuilder};
-use crate::executor::worker::Worker;
-
 
 use std::cell::RefCell;
 use std::future::Future;
@@ -24,13 +23,13 @@ pub(crate) fn start() {
     });
 
     let pool = ThreadPoolBuilder::new()
-                .size(num_cpus::get_physical())
-                .after_start(move |_,handle|{
-                    set_pool(handle);
-                    set_handle(reactor_handle.try_clone().expect("Reactor could not start"));
-                })
-                .build();
-    
+        .size(num_cpus::get_physical())
+        .after_start(move |_, handle| {
+            set_pool(handle);
+            set_handle(reactor_handle.try_clone().expect("Reactor could not start"));
+        })
+        .build();
+
     set_pool(pool);
 }
 
@@ -45,11 +44,11 @@ fn set_handle(handle: Handle) {
     HANDLE.with(|ctx| ctx.replace(Some(handle)));
 }
 
-fn set_pool(pool: PoolHandle){
+fn set_pool(pool: PoolHandle) {
     EXECUTOR.with(|ctx| ctx.replace(Some(pool)));
 }
 
-pub(crate)fn set_worker(worker: Worker) {
+pub(crate) fn set_worker(worker: Worker) {
     WORKER.with(|ctx| ctx.replace(Some(worker)));
 }
 
@@ -59,16 +58,20 @@ where
 {
     let future = WORKER.with(|ctx| match *ctx.borrow() {
         Some(ref worker) => {
-            worker.enqueue(future); 
+            worker.enqueue(future);
             None
-        },
+        }
         _ => Some(future),
     });
 
     if let Some(future) = future {
         EXECUTOR.with(|ctx| match *ctx.borrow() {
-            Some(ref spawner) => {spawner.spawn(future);},
-            _ => {},
+            Some(ref spawner) => {
+                spawner
+                    .spawn(future)
+                    .expect("Unknown error when spawning request");
+            }
+            _ => panic!("Context not started : cannot spawn task"),
         });
     }
 }
@@ -78,15 +81,21 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     EXECUTOR.with(|ctx| match *ctx.borrow() {
-        Some(ref spawner) => {spawner.block_on(future);},
-        _ => {},
+        Some(ref spawner) => {
+            spawner
+                .block_on(future)
+                .expect("Unknown error when spawning block on request");
+        }
+        _ => panic!("Context not started : cannot spawn task"),
     });
 }
 
 pub(crate) fn stop() {
     EXECUTOR.with(|ctx| match *ctx.borrow() {
-        Some(ref spawner) => {spawner.stop();},
-        _ => {},
+        Some(ref spawner) => {
+            spawner.stop().expect("Unknown error when stopping context");
+        }
+        _ => panic!("Context not started : cannot stop"),
     });
 }
 
