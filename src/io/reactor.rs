@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use std::task::Waker;
 
-use crossbeam_utils::atomic::AtomicCell;
+use crate::data::AtomicTake;
 
 const DEFAULT_SLAB_SIZE: usize = 4096;
 const DEFAULT_EVENTS_SIZE: usize = 4096;
@@ -133,14 +133,14 @@ enum Message {
 
 pub(crate) struct IoWaker {
     key: usize,
-    waker: AtomicCell<Option<Waker>>,
+    waker: AtomicTake<Waker>,
 }
 
 impl IoWaker {
     fn new(key: usize) -> IoWaker {
         IoWaker {
             key,
-            waker: AtomicCell::new(None),
+            waker: AtomicTake::new(),
         }
     }
 
@@ -153,7 +153,7 @@ impl IoWaker {
     }
 
     pub fn set_waker(&self, waker: Waker) {
-        self.waker.store(Some(waker));
+        self.waker.store(waker);
     }
 }
 

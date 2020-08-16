@@ -11,6 +11,7 @@ use std::task::Poll;
 use std::sync::Arc;
 
 use crate::executor::{ExecutorMessage, Task};
+use crate::data::AtomicTake;
 
 #[derive(Clone)]
 pub(crate) struct Worker {
@@ -36,7 +37,7 @@ impl Worker {
         F: Future<Output = ()> + 'static + Send,
     {
         let task = Arc::new(Task {
-            future: atomic::AtomicCell::new(Some(future.boxed())),
+            future: AtomicTake::from(future.boxed()),
             task_sender: self.global_sender.clone(),
             notify_queue: None,
         });
@@ -56,7 +57,7 @@ impl Worker {
                 let context = &mut Context::from_waker(&*waker);
 
                 if let Poll::Pending = future.as_mut().poll(context) {
-                    task.future.store(Some(future));
+                    task.future.store(future);
                 } else {
                     task.notify();
                 }

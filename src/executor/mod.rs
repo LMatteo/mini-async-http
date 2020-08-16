@@ -18,6 +18,8 @@ use crossbeam_channel::Sender;
 
 use std::sync::mpsc;
 
+use crate::data::AtomicTake;
+
 pub mod thread_pool;
 pub mod worker;
 
@@ -39,7 +41,7 @@ pub struct Spawner {
 
 /// A future that can reschedule itself to be polled by an `Executor`.
 pub struct Task {
-    future: atomic::AtomicCell<Option<BoxFuture<'static, ()>>>,
+    future: AtomicTake<BoxFuture<'static, ()>>,
 
     /// Handle to place the task itself back onto the task queue.
     task_sender: Sender<ExecutorMessage>,
@@ -70,7 +72,7 @@ impl Spawner {
     pub fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
         let future = future.boxed();
         let task = Arc::new(Task {
-            future: atomic::AtomicCell::new(Some(future)),
+            future: AtomicTake::from(future),
             task_sender: self.task_sender.clone(),
             notify_queue: None,
         });
@@ -113,7 +115,7 @@ impl Executor {
                 if let Poll::Pending = future.as_mut().poll(context) {
                     // We're not done processing the future, so put it
                     // back in its task to be run again in the future.
-                    task.future.store(Some(future));
+                    task.future.store(future);
                 }
             }
         }

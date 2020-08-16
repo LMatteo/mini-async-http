@@ -7,6 +7,7 @@ mod http;
 mod io;
 mod request;
 mod response;
+mod data;
 
 pub use aioserver::server::ServerHandle;
 pub use aioserver::AIOServer;

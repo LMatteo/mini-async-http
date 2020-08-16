@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
-use crossbeam_utils::atomic::AtomicCell;
 use futures::FutureExt;
 
 use std::sync::mpsc;
@@ -12,6 +11,7 @@ use crate::executor::worker::Worker;
 use crate::executor::ExecutorMessage;
 use crate::executor::Task;
 use crate::io::context;
+use crate::data::AtomicTake;
 
 use log::trace;
 
@@ -110,7 +110,7 @@ impl PoolHandle {
     {
         let future = future.boxed();
         let task = Arc::new(Task {
-            future: AtomicCell::new(Some(future)),
+            future: AtomicTake::from(future),
             task_sender: self.sender.clone(),
             notify_queue: None,
         });
@@ -130,7 +130,7 @@ impl PoolHandle {
         let (sender, receiver) = mpsc::sync_channel(1);
 
         let task = Arc::new(Task {
-            future: AtomicCell::new(Some(future)),
+            future: AtomicTake::from(future),
             task_sender: self.sender.clone(),
             notify_queue: Some(sender),
         });

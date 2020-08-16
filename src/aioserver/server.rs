@@ -2,13 +2,13 @@ use crate::aioserver::enhanced_stream::EnhancedStream;
 use crate::io::context;
 use crate::request::Request;
 use crate::response::Response;
+use crate::data::AtomicTake;
 
 use std::io::Write;
 use std::net::SocketAddr;
 
 use std::ops::Drop;
 
-use crossbeam_utils::atomic::AtomicCell;
 use std::sync::{Arc, Condvar, Mutex};
 
 use futures::channel::oneshot;
@@ -23,7 +23,7 @@ pub struct AIOServer<H> {
     handle: ServerHandle,
     addr: SocketAddr,
 
-    stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>,
+    stop_sender: Arc<AtomicTake<oneshot::Sender<()>>>,
 }
 
 impl<H> AIOServer<H>
@@ -57,7 +57,7 @@ where
     /// ```
     pub fn new(_size: i32, addr: &str, handler: H) -> AIOServer<H> {
         let addr = addr.parse().unwrap();
-        let stop_sender = Arc::from(AtomicCell::new(None));
+        let stop_sender = Arc::from(AtomicTake::<oneshot::Sender<()>>::new());
 
         AIOServer {
             handler: Arc::from(handler),
@@ -107,7 +107,7 @@ where
         let addr = self.addr;
 
         let (stop_sender, stop_receiver) = oneshot::channel::<()>();
-        self.stop_sender.store(Some(stop_sender));
+        self.stop_sender.store(stop_sender);
 
         let server = async move {
             let listener = crate::io::tcp_listener::TcpListener::bind(addr);
@@ -171,11 +171,11 @@ impl<H> Drop for AIOServer<H> {
 #[derive(Clone)]
 pub struct ServerHandle {
     ready: Status,
-    stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>,
+    stop_sender: Arc<AtomicTake<oneshot::Sender<()>>>,
 }
 
 impl ServerHandle {
-    fn new(stop_sender: Arc<AtomicCell<Option<oneshot::Sender<()>>>>) -> Self {
+    fn new(stop_sender: Arc<AtomicTake<oneshot::Sender<()>>>) -> Self {
         ServerHandle {
             ready: Arc::new((Mutex::from(false), Condvar::new())),
             stop_sender,
