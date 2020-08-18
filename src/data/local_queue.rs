@@ -1,39 +1,46 @@
-use crossbeam_queue::{ArrayQueue, PushError};
+use std::cell::UnsafeCell;
 
-const DEFAULT_SIZE: usize = 10000;
+const DEFAULT_SIZE: usize = u16::MAX as usize;
 
 #[derive(Debug)]
-pub enum QueueError<T> {
+pub(crate) enum QueueError<T> {
     Push(T),
     Empty,
 }
 
-pub struct LocalQueue<T> {
-    inner: ArrayQueue<T>,
+pub(crate) struct LocalQueue<T> {
+    inner: UnsafeCell<Vec<T>>,
 }
 
 impl<T> LocalQueue<T> {
     pub(crate) fn new() -> LocalQueue<T> {
         LocalQueue {
-            inner: ArrayQueue::new(DEFAULT_SIZE),
+            inner: UnsafeCell::from(Vec::with_capacity(DEFAULT_SIZE)),
         }
     }
 
     pub(crate) fn push(&self, val: T) -> Result<(), QueueError<T>> {
-        if let Err(PushError(val)) = self.inner.push(val) {
+        let inner: &mut Vec<T> = unsafe { &mut *self.inner.get() };
+        if inner.len() >= DEFAULT_SIZE {
             return Err(QueueError::Push(val));
         }
 
+        inner.push(val);
         Ok(())
     }
 
     pub(crate) fn pop(&self) -> Result<T, QueueError<T>> {
-        match self.inner.pop() {
-            Ok(val) => Ok(val),
-            Err(_) => Err(QueueError::Empty),
+        let inner: &mut Vec<T> = unsafe { &mut *self.inner.get() };
+
+        if let Some(val) = inner.pop() {
+            return Ok(val);
         }
+
+        Err(QueueError::Empty)
     }
 }
+
+unsafe impl<T> Sync for LocalQueue<T> {}
 
 #[cfg(test)]
 mod test {

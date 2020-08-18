@@ -1,6 +1,6 @@
 use crossbeam_utils::atomic::AtomicCell;
 
-pub struct AtomicTake<T> {
+pub(crate) struct AtomicTake<T> {
     inner: AtomicCell<Option<T>>,
 }
 

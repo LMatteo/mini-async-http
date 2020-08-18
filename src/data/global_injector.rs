@@ -1,5 +1,3 @@
-use crossbeam_channel::SendError;
-
 pub(crate) fn global_injector<T>() -> (Sender<T>, Receiver<T>) {
     let (sender, receiver) = crossbeam_channel::unbounded();
 
@@ -7,13 +5,13 @@ pub(crate) fn global_injector<T>() -> (Sender<T>, Receiver<T>) {
 }
 
 #[derive(Debug)]
-pub enum InjectorError<T> {
+pub(crate) enum InjectorError<T> {
     Send(T),
     Recv,
 }
 
 #[derive(Debug)]
-pub struct Sender<T> {
+pub(crate) struct Sender<T> {
     inner: crossbeam_channel::Sender<T>,
 }
 
@@ -43,7 +41,7 @@ impl<T> Clone for Sender<T> {
 }
 
 #[derive(Debug)]
-pub struct Receiver<T> {
+pub(crate) struct Receiver<T> {
     inner: crossbeam_channel::Receiver<T>,
 }
 
