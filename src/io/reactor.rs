@@ -1,4 +1,4 @@
-use crossbeam_channel::{bounded, Receiver, Sender};
+use log::error;
 use slab::Slab;
 
 use std::sync::Arc;
@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::task::Waker;
 
 use crate::data::AtomicTake;
+use crate::data::{global_injector, Receiver, Sender};
 
 const DEFAULT_SLAB_SIZE: usize = 4096;
 const DEFAULT_EVENTS_SIZE: usize = 4096;
@@ -29,7 +30,7 @@ impl Reactor {
         let events = mio::Events::with_capacity(DEFAULT_EVENTS_SIZE);
 
         let mut io_wakers = Slab::with_capacity(DEFAULT_SLAB_SIZE);
-        let (id_sender, id_receiver) = bounded(DEFAULT_SLAB_SIZE);
+        let (id_sender, id_receiver) = global_injector();
 
         let waker_entry = io_wakers.vacant_entry();
         let waker_token = waker_entry.key();
@@ -42,7 +43,9 @@ impl Reactor {
             let waker = Arc::from(IoWaker::new(entry.key()));
             entry.insert(waker.clone());
 
-            id_sender.send(waker).unwrap();
+            if id_sender.send(waker).is_err() {
+                panic!("Cannot populate waker pool")
+            }
         }
 
         Reactor {
@@ -100,7 +103,10 @@ pub(crate) struct Handle {
 
 impl Handle {
     pub(crate) fn register(&self, source: &mut dyn mio::event::Source) -> Arc<IoWaker> {
-        let waker = self.id_receiver.try_recv().expect("No id available");
+        let waker = match self.id_receiver.try_recv() {
+            Ok(waker) => waker,
+            Err(_) => panic!("Not waker available"),
+        };
 
         self.registry
             .register(source, mio::Token(waker.key()), mio::Interest::READABLE)
@@ -111,7 +117,9 @@ impl Handle {
 
     pub(crate) fn deregister(&self, source: &mut dyn mio::event::Source, waker: Arc<IoWaker>) {
         self.registry.deregister(source).unwrap();
-        self.id_sender.send(waker).unwrap();
+        if self.id_sender.send(waker).is_err() {
+            error!("Could not put the waker back into the pool");
+        }
     }
 
     pub(crate) fn try_clone(&self) -> std::io::Result<Self> {

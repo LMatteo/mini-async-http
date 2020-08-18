@@ -1,13 +1,12 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
 use futures::FutureExt;
 
 use std::sync::mpsc;
 
 use crate::data::AtomicTake;
+use crate::data::{global_injector, Receiver, Sender};
 use crate::executor::worker::Worker;
 use crate::executor::ExecutorMessage;
 use crate::executor::Task;
@@ -66,8 +65,8 @@ impl ThreadPoolBuilder {
     }
 
     pub(crate) fn build(self) -> PoolHandle {
-        let (sender, ready_queue) = crossbeam_channel::unbounded();
-        let (handle_sender, handle_receiver) = crossbeam_channel::bounded(self.size);
+        let (sender, ready_queue) = global_injector();
+        let (handle_sender, handle_receiver) = global_injector();
 
         let handle = PoolHandle {
             sender: sender.clone(),
@@ -157,7 +156,7 @@ impl PoolHandle {
             }
         }
 
-        for handle in &self.handles {
+        while let Ok(handle) = self.handles.try_recv() {
             if handle.join().is_err() {
                 return Err(PoolError::Join);
             }

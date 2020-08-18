@@ -12,16 +12,15 @@ use {
 
 use log::error;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-
 use std::sync::mpsc;
 
 use crate::data::AtomicTake;
+use crate::data::{global_injector, Receiver, Sender};
 
 pub mod thread_pool;
 pub mod worker;
 
+#[derive(Clone)]
 pub(crate) enum ExecutorMessage {
     Task(Arc<Task>),
     Stop,
@@ -59,11 +58,8 @@ impl Task {
 }
 
 pub fn new_executor_and_spawner() -> (Executor, Spawner) {
-    // Maximum number of tasks to allow queueing in the channel at once.
-    // This is just to make `sync_channel` happy, and wouldn't be present in
-    // a real executor.
     const MAX_QUEUED_TASKS: usize = 10_000;
-    let (task_sender, ready_queue) = crossbeam_channel::bounded(MAX_QUEUED_TASKS);
+    let (task_sender, ready_queue) = global_injector();
     (Executor { ready_queue }, Spawner { task_sender })
 }
 
@@ -75,25 +71,28 @@ impl Spawner {
             task_sender: self.task_sender.clone(),
             notify_queue: None,
         });
-        self.task_sender
-            .send(ExecutorMessage::Task(task))
-            .expect("too many tasks queued");
+        if self.task_sender.send(ExecutorMessage::Task(task)).is_err() {
+            error!("Error when spawning request");
+        }
     }
 
     pub fn stop(&self) {
-        self.task_sender
-            .send(ExecutorMessage::Stop)
-            .expect("too many tasks queued")
+        if self.task_sender.send(ExecutorMessage::Stop).is_err() {
+            error!("Error when waking up request")
+        }
     }
 }
 
 impl ArcWake for Task {
     fn wake_by_ref(arc_self: &Arc<Self>) {
         let cloned = arc_self.clone();
-        arc_self
+        if arc_self
             .task_sender
             .send(ExecutorMessage::Task(cloned))
-            .expect("too many tasks queued");
+            .is_err()
+        {
+            error!("Error when waking up request")
+        }
     }
 }
 

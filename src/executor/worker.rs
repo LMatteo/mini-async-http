@@ -1,7 +1,3 @@
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-use crossbeam_queue::{ArrayQueue, PushError};
-
 use futures::task::waker_ref;
 use futures::FutureExt;
 use std::future::Future;
@@ -10,12 +6,15 @@ use std::task::Poll;
 
 use std::sync::Arc;
 
+use log::error;
+
 use crate::data::AtomicTake;
+use crate::data::{LocalQueue, QueueError, Receiver, Sender};
 use crate::executor::{ExecutorMessage, Task};
 
 #[derive(Clone)]
 pub(crate) struct Worker {
-    local: Arc<ArrayQueue<Arc<Task>>>,
+    local: Arc<LocalQueue<Arc<Task>>>,
     global_sender: Sender<ExecutorMessage>,
     global_receiver: Receiver<ExecutorMessage>,
 }
@@ -26,7 +25,7 @@ impl Worker {
         receiver: Receiver<ExecutorMessage>,
     ) -> Worker {
         Worker {
-            local: Arc::from(ArrayQueue::new(10000)),
+            local: Arc::from(LocalQueue::new()),
             global_sender: sender,
             global_receiver: receiver,
         }
@@ -42,10 +41,14 @@ impl Worker {
             notify_queue: None,
         });
 
-        if let Err(PushError(task)) = self.local.push(task) {
-            self.global_sender
+        if let Err(QueueError::Push(task)) = self.local.push(task) {
+            if self
+                .global_sender
                 .send(ExecutorMessage::Task(task))
-                .unwrap();
+                .is_err()
+            {
+                error!("Could not push task onto the global queue")
+            }
         }
     }
 
