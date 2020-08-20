@@ -8,8 +8,8 @@ use std::task::Waker;
 use crate::data::AtomicTake;
 use crate::data::{global_injector, Receiver, Sender};
 
-const DEFAULT_SLAB_SIZE: usize = 4096;
-const DEFAULT_EVENTS_SIZE: usize = 4096;
+const DEFAULT_SLAB_SIZE: usize = 16384;
+const DEFAULT_EVENTS_SIZE: usize = 16384;
 
 pub(crate) struct Reactor {
     poll: mio::Poll,

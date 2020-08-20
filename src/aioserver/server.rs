@@ -3,6 +3,8 @@ use crate::data::AtomicTake;
 use crate::io::context;
 use crate::request::Request;
 use crate::response::Response;
+use crate::http::header::CONNECTION_HEADER;
+use crate::http::header::CLOSE_CONNECTION_HEADER;
 
 use std::io::Write;
 use std::net::SocketAddr;
@@ -142,6 +144,12 @@ where
                         for request in requests {
                             let response = (handler.clone())(&request);
                             write!(stream, "{}", response).unwrap();
+
+                            if let Some(header) = request.headers().get_header(CONNECTION_HEADER) {
+                                if header == CLOSE_CONNECTION_HEADER {
+                                    return
+                                }
+                            }
                         }
                     }
                 });
