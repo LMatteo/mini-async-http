@@ -9,6 +9,6 @@ pub use parser::BuildError;
 pub use version::Version;
 
 pub(crate) mod header {
-    pub const CONNECTION_HEADER : &str = "Connection";
-    pub const CLOSE_CONNECTION_HEADER : &str = "close";
+    pub const CONNECTION_HEADER: &str = "Connection";
+    pub const CLOSE_CONNECTION_HEADER: &str = "close";
 }

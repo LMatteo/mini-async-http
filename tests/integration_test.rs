@@ -118,9 +118,8 @@ fn close_connection() {
     run_test(|config| {
         let addr = config.http_addr.as_str();
         let uri: http_req::uri::Uri = addr.parse().unwrap();
-        let mut stream =
-            TcpStream::connect((uri.host().unwrap(), uri.corr_port())).unwrap();
-        
+        let mut stream = TcpStream::connect((uri.host().unwrap(), uri.corr_port())).unwrap();
+
         let mut writer = Vec::new();
 
         let response = http_req::request::RequestBuilder::new(&uri)
@@ -133,7 +132,7 @@ fn close_connection() {
 
         let body = std::str::from_utf8(&writer).unwrap();
         assert_eq!("POST", body);
-        assert!(response.status_code().is(|code| {code == 200}));
+        assert!(response.status_code().is(|code| { code == 200 }));
 
         let mut writer = Vec::new();
         let response = http_req::request::RequestBuilder::new(&uri)
@@ -142,7 +141,7 @@ fn close_connection() {
             .header("Content-length", "4")
             .header("Connection", "Close")
             .send(&mut stream, &mut writer);
-        
+
         assert!(response.is_err());
     })
 }
