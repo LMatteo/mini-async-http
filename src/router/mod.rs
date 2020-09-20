@@ -1,10 +1,10 @@
 mod route;
 
-use crate::Request;
+use crate::{Request, Response, ResponseBuilder};
 use std::collections::HashMap;
 
 pub(crate) struct Router {
-    routes: HashMap<route::Route, Box<dyn Send + Sync + 'static + Fn(&Request)>>,
+    routes: HashMap<route::Route, Box<dyn Send + Sync + 'static + Fn(&Request) -> Response>>,
 }
 
 impl Router {
@@ -20,15 +20,17 @@ impl Router {
 
     pub(crate) fn add_route<T>(&mut self, route: route::Route, handler: T)
     where
-        T: Send + Sync + 'static + Fn(&Request),
+        T: Send + Sync + 'static + Fn(&Request) -> Response,
     {
         self.routes.insert(route, Box::from(handler));
     }
 
-    pub(crate) fn exec(&self, req: &crate::Request) {
+    pub(crate) fn exec(&self, req: &crate::Request) -> Response {
         if let Some((_, handler)) = self.routes.iter().find(|(route, _)| route.is_match(req)) {
-            handler(req);
+            return handler(req);
         }
+
+        ResponseBuilder::empty_404().build().unwrap()
     }
 }
 
@@ -42,7 +44,9 @@ mod test {
     fn router_match() {
         let mut router = Router::new();
 
-        router.add_route(route::Route::new("/test", Method::GET), |req| {});
+        router.add_route(route::Route::new("/test", Method::GET), |req| {
+            ResponseBuilder::empty_200().body(b"test").build().unwrap()
+        });
 
         let req = RequestBuilder::new()
             .method(Method::GET)
@@ -58,7 +62,9 @@ mod test {
     fn router_no_match() {
         let mut router = Router::new();
 
-        router.add_route(route::Route::new("/test", Method::GET), |req| {});
+        router.add_route(route::Route::new("/test", Method::GET), |req| {
+            ResponseBuilder::empty_200().body(b"test").build().unwrap()
+        });
 
         let req = RequestBuilder::new()
             .method(Method::POST)
@@ -71,13 +77,11 @@ mod test {
     }
 
     #[test]
-    fn router_exec() {
+    fn router_exec_single_route() {
         let mut router = Router::new();
 
-        let (sender, receiver) = crossbeam_channel::unbounded();
-
         router.add_route(route::Route::new("/test", Method::GET), move |_req| {
-            sender.send(()).unwrap();
+            ResponseBuilder::empty_200().body(b"test").build().unwrap()
         });
 
         let req = RequestBuilder::new()
@@ -87,8 +91,114 @@ mod test {
             .build()
             .expect("Error when building request");
 
-        router.exec(&req);
+        let response = router.exec(&req);
 
-        assert!(receiver.try_recv().is_ok())
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"test");
+    }
+
+    #[test]
+    fn router_exec_double_route_path() {
+        let mut router = Router::new();
+
+        router.add_route(route::Route::new("/test", Method::GET), move |_req| {
+            ResponseBuilder::empty_200().body(b"test").build().unwrap()
+        });
+
+        router.add_route(route::Route::new("/test2", Method::GET), move |_req| {
+            ResponseBuilder::empty_200().body(b"test2").build().unwrap()
+        });
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/test"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"test");
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/test2"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"test2");
+    }
+
+    #[test]
+    fn router_exec_double_route_method() {
+        let mut router = Router::new();
+
+        router.add_route(route::Route::new("/test", Method::GET), move |_req| {
+            ResponseBuilder::empty_200().body(b"GET").build().unwrap()
+        });
+
+        router.add_route(route::Route::new("/test", Method::POST), move |_req| {
+            ResponseBuilder::empty_200().body(b"POST").build().unwrap()
+        });
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/test"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"GET");
+
+        let req = RequestBuilder::new()
+            .method(Method::POST)
+            .path(String::from("/test"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"POST");
+    }
+
+    #[test]
+    fn router_add_same_route() {
+        let mut router = Router::new();
+
+        router.add_route(route::Route::new("/test", Method::GET), move |_req| {
+            ResponseBuilder::empty_200().build().unwrap()
+        });
+
+        router.add_route(route::Route::new("/test", Method::GET), move |_req| {
+            ResponseBuilder::empty_200().build().unwrap()
+        });
+
+        assert_eq!(router.routes.len(), 1)
+    }
+
+    #[test]
+    fn router_missing_route() {
+        let mut router = Router::new();
+
+        let req = RequestBuilder::new()
+            .method(Method::POST)
+            .path(String::from("/test"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 404);
     }
 }

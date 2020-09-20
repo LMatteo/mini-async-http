@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 pub fn main() {
     let counter = Arc::from(Mutex::from(0));
 
-    let mut server = AIOServer::new(3, "0.0.0.0:7878", move |_request| {
+    let mut server = AIOServer::new("0.0.0.0:7878", move |_request| {
         let lock = counter.clone();
         let mut counter = lock.lock().unwrap();
 

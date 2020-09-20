@@ -6,12 +6,6 @@ mod common;
 
 use common::*;
 
-enum Job {
-    Request(Request),
-    DefaultRequest,
-    Stop,
-}
-
 #[test]
 fn simple_get_request() {
     run_test(|config| {

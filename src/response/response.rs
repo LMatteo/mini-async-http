@@ -119,6 +119,13 @@ impl ResponseBuilder {
             .version(Version::HTTP11)
     }
 
+    pub fn empty_404() -> Self {
+        ResponseBuilder::new()
+            .code(Reason::NOTFOUND404.code())
+            .reason(Reason::NOTFOUND404.reason())
+            .version(Version::HTTP11)
+    }
+
     /// Set the the status code of the response
     pub fn code(mut self, code: i32) -> Self {
         self.code = Option::Some(code);

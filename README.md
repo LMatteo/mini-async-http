@@ -14,7 +14,7 @@ use mini_async_http::AIOServer;
 use mini_async_http::ResponseBuilder;
 
 pub fn main(){
-    let mut server = AIOServer::new(3, "0.0.0.0:7878", move |request|{
+    let mut server = AIOServer::new("0.0.0.0:7878", move |request|{
         ResponseBuilder::empty_200()
             .body(b"Hello")
             .content_type("text/plain")
@@ -42,7 +42,7 @@ use std::sync::{Arc, Mutex};
 pub fn main() {
     let counter = Arc::from(Mutex::from(0));
 
-    let mut server = AIOServer::new(3, "0.0.0.0:7878", move |request| {
+    let mut server = AIOServer::new("0.0.0.0:7878", move |request| {
         let lock = counter.clone();
         let mut counter = lock.lock().unwrap();
 

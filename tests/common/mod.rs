@@ -79,7 +79,7 @@ pub fn handler_basic(request: &Request) -> Response {
 
 fn server(port: &str) -> AIOServer<Handler> {
     let addr = format!("127.0.0.1:{}", port);
-    AIOServer::new(1, addr.as_str(), Box::new(handler_basic))
+    AIOServer::new(addr.as_str(), Box::new(handler_basic))
 }
 
 fn addr(port: &str) -> String {

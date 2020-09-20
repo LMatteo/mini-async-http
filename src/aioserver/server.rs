@@ -49,7 +49,7 @@ where
     /// "text/plain" and body "Hello"
     ///
     /// ```
-    /// let server = mini_async_http::AIOServer::new(3, "127.0.0.1:7878", move |request|{
+    /// let server = mini_async_http::AIOServer::new("127.0.0.1:7878", move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -57,7 +57,7 @@ where
     ///         .unwrap()
     /// });
     /// ```
-    pub fn new(_size: i32, addr: &str, handler: H) -> AIOServer<H> {
+    pub fn new(addr: &str, handler: H) -> AIOServer<H> {
         let addr = addr.parse().unwrap();
         let stop_sender = Arc::from(AtomicTake::<oneshot::Sender<()>>::new());
 
@@ -78,7 +78,7 @@ where
     /// After spawning the thread, wait for the server to be ready and then shut it down
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new(3, "127.0.0.1:7879", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7879", move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -207,7 +207,7 @@ impl ServerHandle {
     /// causing the server to stop and the execution to end.
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new(3, "127.0.0.1:7880", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880", move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -250,7 +250,7 @@ impl ServerHandle {
     /// The main thread waits for the server to be ready and then ends
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new(3, "127.0.0.1:7880", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880", move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
