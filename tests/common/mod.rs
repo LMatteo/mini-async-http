@@ -1,13 +1,12 @@
 use mini_async_http::{
-    AIOServer, Headers, Method, Request, RequestBuilder, Response, ResponseBuilder, Version,
+    AIOServer, Headers, Method, Request, RequestBuilder, Response, ResponseBuilder, Route, Router,
+    Version,
 };
 
 use std::sync::Mutex;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
-
-pub type Handler = Box<dyn Send + Sync + 'static + Fn(&Request) -> Response>;
 
 pub struct ServerConfig {
     pub addr: String,
@@ -36,7 +35,7 @@ lazy_static! {
 }
 
 impl ServerGenerator {
-    pub fn server(&self) -> (AIOServer<Handler>, ServerConfig) {
+    pub fn server(&self) -> (AIOServer, ServerConfig) {
         let portstr = self.incr().to_string();
 
         let server = server(portstr.as_str());
@@ -77,7 +76,7 @@ pub fn handler_basic(request: &Request) -> Response {
     return response;
 }
 
-fn server(port: &str) -> AIOServer<Handler> {
+fn server(port: &str) -> AIOServer {
     let addr = format!("127.0.0.1:{}", port);
     AIOServer::new(addr.as_str(), Box::new(handler_basic))
 }

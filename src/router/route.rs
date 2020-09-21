@@ -3,19 +3,20 @@ use crate::Request;
 
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug)]
-pub(crate) struct Route {
+#[derive(Debug, Clone)]
+pub struct Route {
     path: String,
     method: Method,
 }
 
 impl Route {
-    pub(crate) fn new(path: &str, method: Method) -> Route {
+    pub fn new(path: &str, method: Method) -> Route {
         Route {
             path: String::from(path),
             method,
         }
     }
+
     pub(crate) fn is_match(&self, req: &Request) -> bool {
         &self.method == req.method() && &self.path == req.path()
     }

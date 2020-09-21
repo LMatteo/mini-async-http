@@ -22,3 +22,5 @@ pub use request::RequestBuilder;
 pub use response::Reason;
 pub use response::Response;
 pub use response::ResponseBuilder;
+pub use router::route::Route;
+pub use router::Router;

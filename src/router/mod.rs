@@ -1,31 +1,33 @@
-mod route;
+pub mod route;
 
 use crate::{Request, Response, ResponseBuilder};
 use std::collections::HashMap;
+use std::sync::Arc;
 
-pub(crate) struct Router {
-    routes: HashMap<route::Route, Box<dyn Send + Sync + 'static + Fn(&Request) -> Response>>,
+#[derive(Clone)]
+pub struct Router {
+    routes: HashMap<route::Route, Arc<dyn Send + Sync + 'static + Fn(&Request) -> Response>>,
 }
 
 impl Router {
-    pub(crate) fn new() -> Router {
+    pub fn new() -> Router {
         Router {
             routes: HashMap::new(),
         }
     }
 
-    pub(crate) fn is_matching(&self, req: &crate::Request) -> bool {
+    pub fn is_matching(&self, req: &crate::Request) -> bool {
         self.routes.keys().any(|key| key.is_match(&req))
     }
 
-    pub(crate) fn add_route<T>(&mut self, route: route::Route, handler: T)
+    pub fn add_route<T>(&mut self, route: route::Route, handler: T)
     where
-        T: Send + Sync + 'static + Fn(&Request) -> Response,
+        T: Send + Sync + 'static + std::ops::Fn(&Request) -> Response,
     {
-        self.routes.insert(route, Box::from(handler));
+        self.routes.insert(route, Arc::from(handler));
     }
 
-    pub(crate) fn exec(&self, req: &crate::Request) -> Response {
+    pub fn exec(&self, req: &crate::Request) -> Response {
         if let Some((_, handler)) = self.routes.iter().find(|(route, _)| route.is_match(req)) {
             return handler(req);
         }

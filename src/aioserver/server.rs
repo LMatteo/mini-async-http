@@ -20,18 +20,15 @@ type Status = Arc<(Mutex<bool>, Condvar)>;
 pub(crate) type SafeStream<R> = Arc<Mutex<EnhancedStream<R>>>;
 
 /// Main struct of the crate, represent the http server
-pub struct AIOServer<H> {
-    handler: Arc<H>,
+pub struct AIOServer {
+    handler: Arc<dyn Send + Sync + 'static + Fn(&Request) -> Response>,
     handle: ServerHandle,
     addr: SocketAddr,
 
     stop_sender: Arc<AtomicTake<oneshot::Sender<()>>>,
 }
 
-impl<H> AIOServer<H>
-where
-    H: Send + Sync + 'static + Fn(&Request) -> Response,
-{
+impl AIOServer {
     /// Start the server with the given thread pool size and bind to the given address
     /// The given function is executed for each http request received
     ///
@@ -57,7 +54,10 @@ where
     ///         .unwrap()
     /// });
     /// ```
-    pub fn new(addr: &str, handler: H) -> AIOServer<H> {
+    pub fn new<H>(addr: &str, handler: H) -> AIOServer
+    where
+        H: Send + Sync + 'static + Fn(&Request) -> Response,
+    {
         let addr = addr.parse().unwrap();
         let stop_sender = Arc::from(AtomicTake::<oneshot::Sender<()>>::new());
 
@@ -159,7 +159,7 @@ where
     }
 }
 
-impl<H> AIOServer<H> {
+impl AIOServer {
     /// Get a [`ServerHandle`] to this server
     ///
     /// [`ServerHandle`]: struct.ServerHandle.html
@@ -168,7 +168,7 @@ impl<H> AIOServer<H> {
     }
 }
 
-impl<H> Drop for AIOServer<H> {
+impl Drop for AIOServer {
     fn drop(&mut self) {
         self.handle.shutdown();
     }
