@@ -36,6 +36,12 @@ impl Router {
     }
 }
 
+impl Default for Router {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -46,7 +52,7 @@ mod test {
     fn router_match() {
         let mut router = Router::new();
 
-        router.add_route(route::Route::new("/test", Method::GET), |req| {
+        router.add_route(route::Route::new("/test", Method::GET), |_req| {
             ResponseBuilder::empty_200().body(b"test").build().unwrap()
         });
 
@@ -64,7 +70,7 @@ mod test {
     fn router_no_match() {
         let mut router = Router::new();
 
-        router.add_route(route::Route::new("/test", Method::GET), |req| {
+        router.add_route(route::Route::new("/test", Method::GET), |_req| {
             ResponseBuilder::empty_200().body(b"test").build().unwrap()
         });
 
@@ -190,7 +196,7 @@ mod test {
 
     #[test]
     fn router_missing_route() {
-        let mut router = Router::new();
+        let router = Router::new();
 
         let req = RequestBuilder::new()
             .method(Method::POST)

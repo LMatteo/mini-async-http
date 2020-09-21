@@ -1,5 +1,3 @@
-use mini_async_http::Request;
-
 use std::net::TcpStream;
 
 mod common;
@@ -144,7 +142,7 @@ fn close_connection() {
 fn simple_get_request_routed() {
     run_test_routed_server(|config| {
         let mut writer = Vec::new();
-        let res = http_req::request::get(
+        let _res = http_req::request::get(
             format!("{}{}", config.http_addr.as_str(), "/router/get"),
             &mut writer,
         )
