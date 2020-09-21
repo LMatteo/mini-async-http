@@ -8,6 +8,8 @@ use std::sync::Mutex;
 extern crate lazy_static;
 use lazy_static::lazy_static;
 
+pub type Handler = Box<dyn Send + Sync + Fn(&Request) -> Response>;
+
 pub struct ServerConfig {
     pub addr: String,
     pub http_addr: String,
@@ -39,6 +41,19 @@ impl ServerGenerator {
         let portstr = self.incr().to_string();
 
         let server = server(portstr.as_str());
+
+        let config = ServerConfig {
+            addr: addr(portstr.as_str()),
+            http_addr: http_addr(portstr.as_str()),
+        };
+
+        (server, config)
+    }
+
+    pub fn routed_server(&self) -> (AIOServer, ServerConfig) {
+        let portstr = self.incr().to_string();
+
+        let server = router_server(portstr.as_str());
 
         let config = ServerConfig {
             addr: addr(portstr.as_str()),
@@ -81,6 +96,41 @@ fn server(port: &str) -> AIOServer {
     AIOServer::new(addr.as_str(), Box::new(handler_basic))
 }
 
+fn router_server(port: &str) -> AIOServer {
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut router = Router::new();
+    router.add_route(Route::new("/router/post", Method::POST), |_| {
+        let builder = ResponseBuilder::new()
+            .code(200)
+            .reason(String::from("OK"))
+            .version(Version::HTTP11)
+            .body(b"POST")
+            .header("Content-Type", "text/plain")
+            .header("Content-Length", "4");
+
+        let response = builder.build().unwrap();
+
+        return response;
+    });
+
+    router.add_route(Route::new("/router/get", Method::GET), |_| {
+        let builder = ResponseBuilder::new()
+            .code(200)
+            .reason(String::from("OK"))
+            .version(Version::HTTP11)
+            .body(b"GET")
+            .header("Content-Type", "text/plain")
+            .header("Content-Length", "3");
+
+        let response = builder.build().unwrap();
+
+        return response;
+    });
+
+    AIOServer::from_router(addr.as_str(), router)
+}
+
 fn addr(port: &str) -> String {
     format!("127.0.0.1:{}", port)
 }
@@ -110,6 +160,25 @@ where
     T: FnOnce(ServerConfig) -> () + std::panic::UnwindSafe,
 {
     let (mut server, config) = GENERATOR.server();
+    let handle = server.handle();
+    std::thread::spawn(move || {
+        server.start();
+    });
+
+    handle.ready();
+
+    let result = std::panic::catch_unwind(|| test(config));
+
+    handle.shutdown();
+
+    assert!(result.is_ok())
+}
+
+pub fn run_test_routed_server<T>(test: T) -> ()
+where
+    T: FnOnce(ServerConfig) -> () + std::panic::UnwindSafe,
+{
+    let (mut server, config) = GENERATOR.routed_server();
     let handle = server.handle();
     std::thread::spawn(move || {
         server.start();

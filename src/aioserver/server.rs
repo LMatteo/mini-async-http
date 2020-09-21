@@ -69,6 +69,10 @@ impl AIOServer {
         }
     }
 
+    pub fn from_router(addr: &str, router: crate::Router) -> AIOServer {
+        AIOServer::new(addr, move |req| router.exec(req))
+    }
+
     /// Start the event loop. This call is blocking but you can still interact with the server through the Handle
     ///
     /// # Example

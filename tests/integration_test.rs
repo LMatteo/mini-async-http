@@ -139,3 +139,51 @@ fn close_connection() {
         assert!(response.is_err());
     })
 }
+
+#[test]
+fn simple_get_request_routed() {
+    run_test_routed_server(|config| {
+        let mut writer = Vec::new();
+        let res = http_req::request::get(
+            format!("{}{}", config.http_addr.as_str(), "/router/get"),
+            &mut writer,
+        )
+        .unwrap();
+
+        let body = std::str::from_utf8(&writer).unwrap();
+
+        assert_eq!("GET", body);
+    })
+}
+
+#[test]
+fn not_found_request_routed() {
+    run_test_routed_server(|config| {
+        let mut writer = Vec::new();
+        let res = http_req::request::get(
+            format!("{}{}", config.http_addr.as_str(), "/router/post"),
+            &mut writer,
+        )
+        .unwrap();
+
+        assert_eq!(res.status_code(), http_req::response::StatusCode::from(404));
+    })
+}
+
+#[test]
+fn simple_post_request_routed() {
+    run_test(|config| {
+        let mut writer = Vec::new();
+        let body = b"RequestBody";
+        let _res = http_req::request::post(
+            format!("{}{}", config.http_addr.as_str(), "/router/post"),
+            body,
+            &mut writer,
+        )
+        .unwrap();
+
+        let body = std::str::from_utf8(&writer).unwrap();
+
+        assert_eq!("POST", body);
+    })
+}
