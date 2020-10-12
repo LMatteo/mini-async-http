@@ -100,33 +100,61 @@ fn router_server(port: &str) -> AIOServer {
     let addr = format!("127.0.0.1:{}", port);
 
     let mut router = Router::new();
-    router.add_route(Route::new("/router/post", Method::POST), |_| {
-        let builder = ResponseBuilder::new()
-            .code(200)
-            .reason(String::from("OK"))
-            .version(Version::HTTP11)
-            .body(b"POST")
-            .header("Content-Type", "text/plain")
-            .header("Content-Length", "4");
+    router.add_route(
+        Route::new("/router/parametrized/{parameter}", Method::GET).unwrap(),
+        |_req, params| {
+            let val = params.get("parameter").unwrap();
+            let len = val.as_bytes().len();
 
-        let response = builder.build().unwrap();
+            println!("EXECUTION");
 
-        return response;
-    });
+            let builder = ResponseBuilder::new()
+                .code(200)
+                .reason(String::from("OK"))
+                .version(Version::HTTP11)
+                .body(val.as_bytes())
+                .header("Content-Type", "text/plain")
+                .header("Content-Length", &len.to_string());
 
-    router.add_route(Route::new("/router/get", Method::GET), |_| {
-        let builder = ResponseBuilder::new()
-            .code(200)
-            .reason(String::from("OK"))
-            .version(Version::HTTP11)
-            .body(b"GET")
-            .header("Content-Type", "text/plain")
-            .header("Content-Length", "3");
+            let response = builder.build().unwrap();
 
-        let response = builder.build().unwrap();
+            return response;
+        },
+    );
 
-        return response;
-    });
+    router.add_route(
+        Route::new("/router/post", Method::POST).unwrap(),
+        |_req, _| {
+            let builder = ResponseBuilder::new()
+                .code(200)
+                .reason(String::from("OK"))
+                .version(Version::HTTP11)
+                .body(b"POST")
+                .header("Content-Type", "text/plain")
+                .header("Content-Length", "4");
+
+            let response = builder.build().unwrap();
+
+            return response;
+        },
+    );
+
+    router.add_route(
+        Route::new("/router/get", Method::GET).unwrap(),
+        |_req, _| {
+            let builder = ResponseBuilder::new()
+                .code(200)
+                .reason(String::from("OK"))
+                .version(Version::HTTP11)
+                .body(b"GET")
+                .header("Content-Type", "text/plain")
+                .header("Content-Length", "3");
+
+            let response = builder.build().unwrap();
+
+            return response;
+        },
+    );
 
     AIOServer::from_router(addr.as_str(), router)
 }

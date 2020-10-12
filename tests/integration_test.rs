@@ -185,3 +185,23 @@ fn simple_post_request_routed() {
         assert_eq!("POST", body);
     })
 }
+
+#[test]
+fn parametrized_request_routed() {
+    run_test_routed_server(|config| {
+        let mut writer = Vec::new();
+        let _res = http_req::request::get(
+            format!(
+                "{}{}",
+                config.http_addr.as_str(),
+                "/router/parametrized/myParam"
+            ),
+            &mut writer,
+        )
+        .unwrap();
+
+        let body = std::str::from_utf8(&writer).unwrap();
+
+        assert_eq!("myParam", body);
+    })
+}
