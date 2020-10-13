@@ -47,7 +47,6 @@ fn route_to_regex(path: &str) -> Result<(Vec<String>, Regex), RegexError> {
     }
     pattern.push('$');
 
-    println!("{}", pattern.as_str());
     Ok((args, Regex::new(&pattern).unwrap()))
 }
 

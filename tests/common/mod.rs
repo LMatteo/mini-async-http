@@ -106,8 +106,6 @@ fn router_server(port: &str) -> AIOServer {
             let val = params.get("parameter").unwrap();
             let len = val.as_bytes().len();
 
-            println!("EXECUTION");
-
             let builder = ResponseBuilder::new()
                 .code(200)
                 .reason(String::from("OK"))

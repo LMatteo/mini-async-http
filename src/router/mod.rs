@@ -1,5 +1,6 @@
 pub mod route;
 
+use crate::router::route::Route;
 use crate::{Request, Response, ResponseBuilder};
 
 use std::collections::HashMap;
@@ -50,6 +51,18 @@ impl Default for Router {
     fn default() -> Self {
         Self::new()
     }
+}
+
+macro_rules! router {
+    ( $( $path:expr, $method:expr => $handler:expr ),* ) => {
+        {
+            let mut router = Router::new();
+            $(
+                router.add_route(Route::new($path, $method).unwrap(), $handler);
+            )*
+            router
+        }
+    };
 }
 
 #[cfg(test)]
@@ -264,5 +277,53 @@ mod test {
         let resp = router.exec(&req);
 
         assert_eq!(resp.body().unwrap(), b"myParam");
+    }
+
+    #[test]
+    fn router_macro() {
+        let router = router!(
+        "/path/macro/get", Method::GET => |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap(),
+        "/path/macro/post", Method::POST => |_,_|ResponseBuilder::empty_200().body(b"POST").build().unwrap(),
+        "/path/macro/{param}", Method::PUT => |_,param|{
+            ResponseBuilder::empty_200().body(param.get("param").unwrap().as_bytes()).build().unwrap()
+        });
+
+        assert_eq!(router.routes.len(), 3);
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/path/macro/get"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"GET");
+
+        let req = RequestBuilder::new()
+            .method(Method::POST)
+            .path(String::from("/path/macro/post"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"POST");
+
+        let req = RequestBuilder::new()
+            .method(Method::PUT)
+            .path(String::from("/path/macro/parameter"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"parameter");
     }
 }
