@@ -1,6 +1,6 @@
 use mini_async_http::{
-    AIOServer, Headers, Method, Request, RequestBuilder, Response, ResponseBuilder, Route, Router,
-    Version,
+    router, AIOServer, Headers, Method, Request, RequestBuilder, Response, ResponseBuilder, Route,
+    Router, Version,
 };
 
 use std::sync::Mutex;
@@ -99,10 +99,8 @@ fn server(port: &str) -> AIOServer {
 fn router_server(port: &str) -> AIOServer {
     let addr = format!("127.0.0.1:{}", port);
 
-    let mut router = Router::new();
-    router.add_route(
-        Route::new("/router/parametrized/{parameter}", Method::GET).unwrap(),
-        |_req, params| {
+    let router = router!(
+        "/router/parametrized/{parameter}", Method::GET => |_req, params| {
             let val = params.get("parameter").unwrap();
             let len = val.as_bytes().len();
 
@@ -118,11 +116,7 @@ fn router_server(port: &str) -> AIOServer {
 
             return response;
         },
-    );
-
-    router.add_route(
-        Route::new("/router/post", Method::POST).unwrap(),
-        |_req, _| {
+        "/router/post", Method::POST => |_req, _| {
             let builder = ResponseBuilder::new()
                 .code(200)
                 .reason(String::from("OK"))
@@ -135,11 +129,7 @@ fn router_server(port: &str) -> AIOServer {
 
             return response;
         },
-    );
-
-    router.add_route(
-        Route::new("/router/get", Method::GET).unwrap(),
-        |_req, _| {
+        "/router/get", Method::GET => |_req, _| {
             let builder = ResponseBuilder::new()
                 .code(200)
                 .reason(String::from("OK"))
@@ -151,7 +141,7 @@ fn router_server(port: &str) -> AIOServer {
             let response = builder.build().unwrap();
 
             return response;
-        },
+        }
     );
 
     AIOServer::from_router(addr.as_str(), router)

@@ -1,37 +1,37 @@
 pub mod route;
 
-use crate::router::route::Route;
-use crate::{Request, Response, ResponseBuilder};
+use crate::{Request, Response, ResponseBuilder, Route};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-type RouteMap = HashMap<
+type RouteList = Vec<(
     route::Route,
     Arc<dyn Send + Sync + 'static + Fn(&Request, HashMap<String, String>) -> Response>,
->;
+)>;
 
 #[derive(Clone)]
 pub struct Router {
-    routes: RouteMap,
+    routes: RouteList,
 }
 
 impl Router {
     pub fn new() -> Router {
-        Router {
-            routes: HashMap::new(),
-        }
+        Router { routes: Vec::new() }
     }
 
     pub fn is_matching(&self, req: &crate::Request) -> bool {
-        self.routes.keys().any(|key| key.is_match(&req))
+        self.routes.iter().any(|(route, _)| route.is_match(&req))
     }
 
-    pub fn add_route<T>(&mut self, route: route::Route, handler: T)
+    pub fn add_route<T>(&mut self, route: Route, handler: T)
     where
         T: Send + Sync + 'static + std::ops::Fn(&Request, HashMap<String, String>) -> Response,
     {
-        self.routes.insert(route, Arc::from(handler));
+        if self.routes.iter().any(|(key_route, _)| &route == key_route) {
+            return;
+        }
+        self.routes.push((route, Arc::from(handler)));
     }
 
     pub fn exec(&self, req: &crate::Request) -> Response {
@@ -53,6 +53,7 @@ impl Default for Router {
     }
 }
 
+#[macro_export]
 macro_rules! router {
     ( $( $path:expr, $method:expr => $handler:expr ),* ) => {
         {
@@ -325,5 +326,42 @@ mod test {
 
         assert_eq!(response.code(), 200);
         assert_eq!(response.body().unwrap(), b"parameter");
+    }
+
+    #[test]
+    fn overlapping_route() {
+        let router = router!(
+            "/path/macro/{param}", Method::GET => |_,param|ResponseBuilder::empty_200().body(param.get("param").unwrap().as_bytes()).build().unwrap(),
+            "/path/macro/get", Method::GET => |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap()
+        );
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/path/macro/get"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"get");
+
+        let router = router!(
+            "/path/macro/get", Method::GET => |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap(),
+            "/path/macro/{param}", Method::GET => |_,param|ResponseBuilder::empty_200().body(param.get("param").unwrap().as_bytes()).build().unwrap()
+        );
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/path/macro/get"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let response = router.exec(&req);
+
+        assert_eq!(response.code(), 200);
+        assert_eq!(response.body().unwrap(), b"GET");
     }
 }

@@ -79,10 +79,7 @@ impl Reactor {
         }
 
         if let Some(waker) = self.io_wakers.get(event.token().0) {
-            match waker.take() {
-                Some(val) => val.wake(),
-                None => return,
-            }
+            waker.wake();
         }
     }
 
@@ -105,8 +102,9 @@ impl Handle {
     pub(crate) fn register(&self, source: &mut dyn mio::event::Source) -> Arc<IoWaker> {
         let waker = match self.id_receiver.try_recv() {
             Ok(waker) => waker,
-            Err(_) => panic!("Not waker available"),
+            Err(_) => panic!("No waker available"),
         };
+
 
         self.registry
             .register(source, mio::Token(waker.key()), mio::Interest::READABLE)
@@ -156,8 +154,14 @@ impl IoWaker {
         self.key
     }
 
-    pub fn take(&self) -> Option<Waker> {
-        self.waker.take()
+    pub fn wake(&self){
+        let waker = match self.waker.take() {
+            Some(waker) => waker,
+            None => return,
+        };
+
+        waker.wake_by_ref();
+        self.set_waker(waker);
     }
 
     pub fn set_waker(&self, waker: Waker) {
@@ -174,12 +178,6 @@ mod tests {
 
         assert_eq!(reactor.io_wakers.len(), DEFAULT_SLAB_SIZE);
         assert_eq!(reactor.io_wakers.len(), reactor.io_wakers.capacity());
-    }
-
-    #[test]
-    fn empty_waker() {
-        let waker = IoWaker::new(0);
-        assert!(waker.take().is_none());
     }
 
     #[test]
