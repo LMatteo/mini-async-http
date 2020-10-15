@@ -1,14 +1,11 @@
 use mini_async_http::{
-    router, AIOServer, Headers, Method, Request, RequestBuilder, Response, ResponseBuilder, Route,
-    Router, Version,
+    router, AIOServer, Method, Request, Response, ResponseBuilder, Route, Router, Version,
 };
 
 use std::sync::Mutex;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
-
-pub type Handler = Box<dyn Send + Sync + Fn(&Request) -> Response>;
 
 pub struct ServerConfig {
     pub addr: String,
@@ -153,22 +150,6 @@ fn addr(port: &str) -> String {
 
 fn http_addr(port: &str) -> String {
     format!("http://{}", addr(port))
-}
-
-pub fn request() -> Request {
-    let _body = String::from("TEST BODY").as_bytes().to_vec();
-
-    let mut headers = Headers::new();
-    headers.set_header(&String::from("content-length"), &String::from("9"));
-
-    RequestBuilder::new()
-        .method(Method::GET)
-        .path(String::from("/"))
-        .version(Version::HTTP11)
-        .headers(headers)
-        .body(b"TEST BODY")
-        .build()
-        .unwrap()
 }
 
 pub fn run_test<T>(test: T) -> ()

@@ -105,7 +105,6 @@ impl Handle {
             Err(_) => panic!("No waker available"),
         };
 
-
         self.registry
             .register(source, mio::Token(waker.key()), mio::Interest::READABLE)
             .unwrap();
@@ -154,7 +153,7 @@ impl IoWaker {
         self.key
     }
 
-    pub fn wake(&self){
+    pub fn wake(&self) {
         let waker = match self.waker.take() {
             Some(waker) => waker,
             None => return,

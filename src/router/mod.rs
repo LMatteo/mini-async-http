@@ -20,7 +20,7 @@ impl Router {
         Router { routes: Vec::new() }
     }
 
-    pub fn is_matching(&self, req: &crate::Request) -> bool {
+    pub(crate) fn is_matching(&self, req: &crate::Request) -> bool {
         self.routes.iter().any(|(route, _)| route.is_match(&req))
     }
 
@@ -34,7 +34,7 @@ impl Router {
         self.routes.push((route, Arc::from(handler)));
     }
 
-    pub fn exec(&self, req: &crate::Request) -> Response {
+    pub(crate) fn exec(&self, req: &crate::Request) -> Response {
         if let Some((route, handler)) = self.routes.iter().find(|(route, _)| route.is_match(req)) {
             let parameters = match route.parse_request(req) {
                 Some(param) => param,

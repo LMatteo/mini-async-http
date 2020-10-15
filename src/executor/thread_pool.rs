@@ -196,7 +196,8 @@ mod test {
             let sender = sender.clone();
             pool.spawn(async move {
                 sender.send(3).unwrap();
-            });
+            })
+            .unwrap();
         }
 
         for _ in 0..size {
@@ -230,7 +231,7 @@ mod test {
                 .expect("Start thread func did not execute");
         }
 
-        pool.stop();
+        pool.stop().unwrap();
 
         for _ in 0..20 {
             cstop
