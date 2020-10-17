@@ -34,10 +34,7 @@ impl AIOServer {
     ///
     /// # Argument
     ///
-    /// * `size` - Number of thread that will be spawned minimum is 1. The total minimum number of thread is 2 :
-    /// 1 to handle request and 1 to run the event loop
     /// * `addr` - Address the server will bind to. The format is the same as std::net::TcpListener.
-    /// If the address is incorrect or cannot be bound to, the function will panic
     /// * `handler` - function executed for each received http request
     ///
     /// # Example
@@ -46,7 +43,7 @@ impl AIOServer {
     /// "text/plain" and body "Hello"
     ///
     /// ```
-    /// let server = mini_async_http::AIOServer::new("127.0.0.1:7878", move |request|{
+    /// let server = mini_async_http::AIOServer::new("127.0.0.1:7878".parse().unwrap(), move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -54,11 +51,10 @@ impl AIOServer {
     ///         .unwrap()
     /// });
     /// ```
-    pub fn new<H>(addr: &str, handler: H) -> AIOServer
+    pub fn new<H>(addr: SocketAddr, handler: H) -> AIOServer
     where
         H: Send + Sync + 'static + Fn(&Request) -> Response,
     {
-        let addr = addr.parse().unwrap();
         let stop_sender = Arc::from(AtomicTake::<oneshot::Sender<()>>::new());
 
         AIOServer {
@@ -69,7 +65,24 @@ impl AIOServer {
         }
     }
 
-    pub fn from_router(addr: &str, router: crate::Router) -> AIOServer {
+    /// Create a new server from a [`Router`] replacing the handler function
+    ///
+    /// # Example
+    ///
+    ///
+    ///
+    /// ```
+    /// use mini_async_http::{Router,ResponseBuilder,AIOServer, Method};
+    ///
+    /// let router = mini_async_http::router!(
+    ///     "/example", Method::GET => |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap(),
+    ///     "/example2", Method::POST => |_,_|ResponseBuilder::empty_200().body(b"POST").build().unwrap()
+    /// );
+    ///
+    /// let server = mini_async_http::AIOServer::from_router("127.0.0.1:7878".parse().unwrap(),router);
+    /// ```
+    /// [`Router`]: struct.Router.html
+    pub fn from_router(addr: SocketAddr, router: crate::Router) -> AIOServer {
         AIOServer::new(addr, move |req| router.exec(req))
     }
 
@@ -82,7 +95,7 @@ impl AIOServer {
     /// After spawning the thread, wait for the server to be ready and then shut it down
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7879", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7879".parse().unwrap(), move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -211,7 +224,7 @@ impl ServerHandle {
     /// causing the server to stop and the execution to end.
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880".parse().unwrap(), move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")
@@ -254,7 +267,7 @@ impl ServerHandle {
     /// The main thread waits for the server to be ready and then ends
     ///
     /// ```
-    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880", move |request|{
+    /// let mut server = mini_async_http::AIOServer::new("127.0.0.1:7880".parse().unwrap(), move |request|{
     ///     mini_async_http::ResponseBuilder::empty_200()
     ///         .body(b"Hello")
     ///         .content_type("text/plain")

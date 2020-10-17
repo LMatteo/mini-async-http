@@ -5,11 +5,15 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+/// Representation of an HTTP route.
+/// Is used by a [`Router`] to match against incoming http request.
+///
+/// [`Router`]: struct.Router.html
 #[derive(Debug, Clone)]
 pub struct Route {
     path: Regex,
     parameters: Vec<String>,
-    method:Option<Method>,
+    method: Option<Method>,
 }
 
 #[derive(Debug)]
@@ -51,6 +55,19 @@ fn route_to_regex(path: &str) -> Result<(Vec<String>, Regex), RegexError> {
 }
 
 impl Route {
+    /// Create a new route from a path and an HTTP method
+    ///
+    /// The path is matched againt this regex '^(/\[\^/?\]*)+$'.
+    /// You can specify argument by surrounding them with curly braces. They will be retrievable when used with the router.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_async_http::{Route,Method};
+    ///
+    /// Route::new("/regular/path",Method::GET); // Match againt GET request on "/regular/path"
+    /// Route::new("/parametrized/{parameter}",Method::GET); // Match againt GET request on "/parametrized/*"
+    /// ```
     pub fn new(path: &str, method: Method) -> Result<Route, RegexError> {
         let mut route = Route::from_path(path)?;
 
@@ -58,6 +75,8 @@ impl Route {
         Ok(route)
     }
 
+    /// Create a route without specifying the HTTP method.
+    /// This route will match against any http request.
     pub fn from_path(path: &str) -> Result<Route, RegexError> {
         let (parameters, reg) = match route_to_regex(path) {
             Ok((parameters, reg)) => (parameters, reg),
@@ -74,7 +93,7 @@ impl Route {
     pub(crate) fn is_match(&self, req: &Request) -> bool {
         let path = req.path().trim_end_matches('/');
         if let Some(method) = &self.method {
-            return method == req.method() && self.path.is_match(path)
+            return method == req.method() && self.path.is_match(path);
         }
 
         self.path.is_match(path)
@@ -284,7 +303,7 @@ mod test {
             .version(crate::Version::HTTP11)
             .build()
             .expect("Error when building request");
-        
+
         assert!(route.is_match(&req));
 
         let req2 = RequestBuilder::new()
@@ -295,6 +314,5 @@ mod test {
             .expect("Error when building request");
 
         assert!(route.is_match(&req2));
-
     }
 }

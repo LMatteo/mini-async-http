@@ -1,6 +1,4 @@
-use mini_async_http::{
-    router, AIOServer, Method, Request, Response, ResponseBuilder, Version,
-};
+use mini_async_http::{router, AIOServer, Method, Request, Response, ResponseBuilder, Version};
 
 use std::sync::Mutex;
 
@@ -90,7 +88,7 @@ pub fn handler_basic(request: &Request) -> Response {
 
 fn server(port: &str) -> AIOServer {
     let addr = format!("127.0.0.1:{}", port);
-    AIOServer::new(addr.as_str(), Box::new(handler_basic))
+    AIOServer::new(addr.as_str().parse().unwrap(), Box::new(handler_basic))
 }
 
 fn router_server(port: &str) -> AIOServer {
@@ -141,7 +139,7 @@ fn router_server(port: &str) -> AIOServer {
         }
     );
 
-    AIOServer::from_router(addr.as_str(), router)
+    AIOServer::from_router(addr.as_str().parse().unwrap(), router)
 }
 
 fn addr(port: &str) -> String {

@@ -10,12 +10,14 @@ type RouteList = Vec<(
     Arc<dyn Send + Sync + 'static + Fn(&Request, HashMap<String, String>) -> Response>,
 )>;
 
+/// Map http route to a specific handler
 #[derive(Clone)]
 pub struct Router {
     routes: RouteList,
 }
 
 impl Router {
+    /// Create a new empty Router
     pub fn new() -> Router {
         Router { routes: Vec::new() }
     }
@@ -24,6 +26,22 @@ impl Router {
         self.routes.iter().any(|(route, _)| route.is_match(&req))
     }
 
+    /// Add a new handler associated to a route to the router.
+    /// The closure is given a hashmap containing the parameters defined in the route
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_async_http::{Route,Router,Method, ResponseBuilder};
+    ///
+    /// let route = Route::new("/regular/path",Method::GET).unwrap(); // Match againt GET request on "/regular/path"
+    /// let parametrized = Route::new("/parametrized/{parameter}",Method::GET).unwrap(); // Match againt GET request on "/parametrized/*"
+    ///
+    /// let mut router = Router::new();
+    ///
+    /// router.add_route(route, |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap());
+    /// router.add_route(parametrized,|_,param|ResponseBuilder::empty_200().body(param.get("parameter").unwrap().as_bytes()).build().unwrap())
+    /// ```
     pub fn add_route<T>(&mut self, route: Route, handler: T)
     where
         T: Send + Sync + 'static + std::ops::Fn(&Request, HashMap<String, String>) -> Response,
@@ -53,6 +71,19 @@ impl Default for Router {
     }
 }
 
+/// Easier syntax to create a new router
+///
+/// # Example
+///
+/// ```
+/// use mini_async_http::{Route,Router,Method, ResponseBuilder,router};
+///
+/// let router = router!(
+///     "/path/static", Method::GET => |_,_|ResponseBuilder::empty_200().body(b"GET").build().unwrap(),
+///     "/path/{param}", Method::GET => |_,param|ResponseBuilder::empty_200().body(param.get("parameter").unwrap().as_bytes()).build().unwrap()
+/// );
+///
+/// ```
 #[macro_export]
 macro_rules! router {
     ( $( $path:expr, $method:expr => $handler:expr ),* ) => {
