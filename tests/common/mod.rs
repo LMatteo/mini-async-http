@@ -1,5 +1,5 @@
 use mini_async_http::{
-    router, AIOServer, Method, Request, Response, ResponseBuilder, Route, Router, Version,
+    router, AIOServer, Method, Request, Response, ResponseBuilder, Version,
 };
 
 use std::sync::Mutex;

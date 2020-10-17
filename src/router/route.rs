@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 pub struct Route {
     path: Regex,
     parameters: Vec<String>,
-    method: Method,
+    method:Option<Method>,
 }
 
 #[derive(Debug)]
@@ -52,6 +52,13 @@ fn route_to_regex(path: &str) -> Result<(Vec<String>, Regex), RegexError> {
 
 impl Route {
     pub fn new(path: &str, method: Method) -> Result<Route, RegexError> {
+        let mut route = Route::from_path(path)?;
+
+        route.method = Some(method);
+        Ok(route)
+    }
+
+    pub fn from_path(path: &str) -> Result<Route, RegexError> {
         let (parameters, reg) = match route_to_regex(path) {
             Ok((parameters, reg)) => (parameters, reg),
             Err(e) => return Err(e),
@@ -60,13 +67,17 @@ impl Route {
         Ok(Route {
             path: reg,
             parameters,
-            method,
+            method: None,
         })
     }
 
     pub(crate) fn is_match(&self, req: &Request) -> bool {
         let path = req.path().trim_end_matches('/');
-        &self.method == req.method() && self.path.is_match(path)
+        if let Some(method) = &self.method {
+            return method == req.method() && self.path.is_match(path)
+        }
+
+        self.path.is_match(path)
     }
 
     pub(crate) fn parse_request(&self, req: &Request) -> Option<HashMap<String, String>> {
@@ -261,5 +272,29 @@ mod test {
 
         assert!(reg.is_match("/"));
         assert!(!reg.is_match("/test"));
+    }
+
+    #[test]
+    fn no_method_route() {
+        let route = Route::from_path("/no/method").unwrap();
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/no/method"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+        
+        assert!(route.is_match(&req));
+
+        let req2 = RequestBuilder::new()
+            .method(Method::POST)
+            .path(String::from("/no/method"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        assert!(route.is_match(&req2));
+
     }
 }

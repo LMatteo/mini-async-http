@@ -57,9 +57,9 @@ impl Default for Router {
 macro_rules! router {
     ( $( $path:expr, $method:expr => $handler:expr ),* ) => {
         {
-            let mut router = Router::new();
+            let mut router = $crate::Router::new();
             $(
-                router.add_route(Route::new($path, $method).unwrap(), $handler);
+                router.add_route($crate::Route::new($path, $method).unwrap(), $handler);
             )*
             router
         }
