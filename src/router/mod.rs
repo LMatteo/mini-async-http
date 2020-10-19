@@ -14,12 +14,19 @@ type RouteList = Vec<(
 #[derive(Clone)]
 pub struct Router {
     routes: RouteList,
+    not_found: Arc<dyn Send + Sync + 'static + Fn(&Request) -> Response>,
+}
+
+fn default_not_found(_: &Request) -> Response {
+    ResponseBuilder::empty_404().build().unwrap()
 }
 
 impl Router {
     /// Create a new empty Router
     pub fn new() -> Router {
-        Router { routes: Vec::new() }
+        Router { routes: Vec::new(),
+            not_found: Arc::from(default_not_found)
+         }
     }
 
     pub(crate) fn is_matching(&self, req: &crate::Request) -> bool {
@@ -27,7 +34,9 @@ impl Router {
     }
 
     /// Add a new handler associated to a route to the router.
-    /// The closure is given a hashmap containing the parameters defined in the route
+    /// The closure is given a hashmap containing the parameters defined in the route.
+    /// 
+    /// If two routes are overlapping, the first to be added will be used.
     ///
     /// # Example
     ///
@@ -52,7 +61,9 @@ impl Router {
         self.routes.push((route, Arc::from(handler)));
     }
 
-    pub(crate) fn exec(&self, req: &crate::Request) -> Response {
+    /// Route the given request to a handler
+    /// If no route match the given request, will execute the default handler
+    pub fn exec(&self, req: &crate::Request) -> Response {
         if let Some((route, handler)) = self.routes.iter().find(|(route, _)| route.is_match(req)) {
             let parameters = match route.parse_request(req) {
                 Some(param) => param,
@@ -61,8 +72,17 @@ impl Router {
             return handler(req, parameters);
         }
 
-        ResponseBuilder::empty_404().build().unwrap()
+        (self.not_found)(req)
     }
+
+    /// Set the handler used in case no route is matching the given request
+    pub fn set_not_found_handler<T>(&mut self, handler: T)
+    where
+        T: Send + Sync + 'static + std::ops::Fn(&Request) -> Response,
+    {
+        self.not_found = Arc::from(handler);
+    }
+
 }
 
 impl Default for Router {
@@ -394,5 +414,46 @@ mod test {
 
         assert_eq!(response.code(), 200);
         assert_eq!(response.body().unwrap(), b"GET");
+    }
+
+    #[test]
+    fn route_not_found() {
+        let router = Router::new();
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/not_found"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let resp = router.exec(&req);
+
+        assert_eq!(resp.code(),404);
+        assert_eq!(resp.body(),None);
+    }
+
+    #[test]
+    fn set_not_found() {
+        let mut router = Router::new();
+        router.set_not_found_handler(|_|{
+            ResponseBuilder::empty_404()
+                .body(b"Not Found")
+                .build()
+                .unwrap()
+        });
+
+        let req = RequestBuilder::new()
+            .method(Method::GET)
+            .path(String::from("/not_found"))
+            .version(crate::Version::HTTP11)
+            .build()
+            .expect("Error when building request");
+
+        let resp = router.exec(&req);
+
+        assert_eq!(resp.code(),404);
+        assert_eq!(resp.body(),Some(&(b"Not Found".to_vec())));
+
     }
 }
