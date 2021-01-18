@@ -1,5 +1,7 @@
 # mini-async-http
 
+[Documentation](https://docs.rs/mini_async_http/0.1.0/mini_async_http) | [Crates.io](https://crates.io/crates/mini_async_http)
+
 mini-async-http is a tiny http server. I have built it in order to practive and learn the rust language. It is 
 based on the [mio](https://github.com/tokio-rs/mio) library for all that is related to async io.
 
